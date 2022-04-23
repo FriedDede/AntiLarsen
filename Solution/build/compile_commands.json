@@ -1,0 +1,17 @@
+[
+{
+  "directory": "/home/andre/CLionProjects/AntiLarsen/build",
+  "command": "/usr/lib64/ccache/clang -g -std=gnu11 -o CMakeFiles/AntiLarsen.dir/main.c.o -c /home/andre/CLionProjects/AntiLarsen/main.c",
+  "file": "/home/andre/CLionProjects/AntiLarsen/main.c"
+},
+{
+  "directory": "/home/andre/CLionProjects/AntiLarsen/build",
+  "command": "/usr/lib64/ccache/clang -g -std=gnu11 -o CMakeFiles/AntiLarsen.dir/iir.c.o -c /home/andre/CLionProjects/AntiLarsen/iir.c",
+  "file": "/home/andre/CLionProjects/AntiLarsen/iir.c"
+},
+{
+  "directory": "/home/andre/CLionProjects/AntiLarsen/build",
+  "command": "/usr/lib64/ccache/clang -g -std=gnu11 -o CMakeFiles/AntiLarsen.dir/audio.c.o -c /home/andre/CLionProjects/AntiLarsen/audio.c",
+  "file": "/home/andre/CLionProjects/AntiLarsen/audio.c"
+}
+]
