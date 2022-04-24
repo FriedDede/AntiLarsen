@@ -1,5 +1,5 @@
 from scipy.io import wavfile
-from scipy.signal import find_peaks
+from scipy.signal import find_peaks, iirnotch, freqz
 from scipy.fft import fft, fftfreq
 import matplotlib.pyplot as plt
 import numpy as np
@@ -53,20 +53,46 @@ def phpr ( peaks, frame, thr):
                 n_peaks.append(peak)
     return n_peaks
 
+def generate_filter ( howlings, df, Q, fs ):
+    """ generate filter:
+        @ param: howlings: found howling indexes
+        @ param: df: frequency resolution
+        @ param: Q: Quality factor, Q = w0/bw, w0 = center frequency, bw = -3dB bandwidth
+        @ return: array of filters
+    """
+    iir_notch = []
+    for howl in howlings:
+        a,b = iirnotch(howl*df,Q,fs)
+        iir_notch.append([a,b])
+        # Frequency response
+        freq, h = freqz(b, a, fs=fs)
+        # Plot
+        fig, ax = plt.subplots(2, 1, figsize=(8, 6))
+        ax[0].plot(freq, 20*np.log10(abs(h)), color='blue')
+        ax[0].set_title("Frequency Response")
+        ax[0].set_ylabel("Amplitude (dB)", color='blue')
+        ax[0].grid()
+        ax[1].plot(freq, np.unwrap(np.angle(h))*180/np.pi, color='green')
+        ax[1].set_ylabel("Angle (degrees)", color='green')
+        ax[1].set_xlabel("Frequency (Hz)")
+        ax[1].grid()
+        plt.show()
+
+    return iir_notch
 
 testfile = '/home/andre/CLionProjects/AntiLarsen/Developing/Resources/test.wav'
-sampling_rate, samples = wavfile.read(testfile)
+fs, samples = wavfile.read(testfile)
 # sample points
 N = 2048
 # time spacing
-T = 1 / sampling_rate
+T = 1 / fs
 # freq specing
 f_axis = fftfreq(N,T)[:N//2]
 df = f_axis[1]
 # blackman window
 blackman = np.blackman(N)
 # debug info
-print('Sampling rate: ' + str(sampling_rate) + " Hz")
+print('Sampling rate: ' + str(fs) + " Hz")
 print('Buffer Length: ' + str(N) + " Samples, " + str(N*T*1000) + " ms")
 print('Frequency resolution: ' + str(df) + ' Hz')
 # right channel scomposition and fft
@@ -76,10 +102,10 @@ ft_frame_r = rta(frame_r, blackman, N)
 ft_frame_r = (ft_frame_r[0:N//2])
 peaks = pnpr(ft_frame_r, 5)
 peaks = phpr(peaks, ft_frame_r, 1)
+filters = generate_filter(peaks,df,30,fs)
 # find peaks
-
+print (filters)
 print (peaks)
-
 
 
 
