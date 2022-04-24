@@ -2,3 +2,6 @@
 .vscode
 *cmake-build*
 */.idea/*
+Resources*
+Developing/venv/*
+*venv*
