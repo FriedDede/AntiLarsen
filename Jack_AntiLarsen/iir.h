@@ -4,9 +4,9 @@
 
 #ifndef ANTILARSEN_IIR_H
 #define ANTILARSEN_IIR_H
-#include <math.h>
+#include <cmath>
 
-#define BR_MAX_COEFS 2000
+#define MAX_FILTERS 2048
 #define PI 3.1415926
 
 /*This initialization function will create the
@@ -31,16 +31,30 @@ typedef struct br_coeffs {
 /*
 Notch filter object
 */
-struct br_filter {
+typedef struct br_filter {
     float e;
     float p;
     float d[3];
     float x[3];
     float y[3];
+} t_notch_filter;
+
+class filter_bank{
+    filter_bank(float , float , float , float , float );
+
+public:
+    void br_iir_setup(t_br_coeffs*, struct br_filter * H,int index);
+    float br_iir_filter(float yin,struct br_filter * H);
+    t_br_coeffs filters[MAX_FILTERS];
+    int in_use[10];
+private:
+    float f_sampling = 44100;
+    float gb = -10;
+    float q_factor = 30;
+    float f_step;
+    float f_min  = 100;
+
 };
 
-extern void br_iir_init(t_br_coeffs*, float fsfilt,float gb,float Q,float fstep, short fmin);
-extern void br_iir_setup(t_br_coeffs*, struct br_filter * H,int index);
-extern float br_iir_filter(float yin,struct br_filter * H);
 
 #endif

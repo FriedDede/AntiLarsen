@@ -1,20 +1,23 @@
 from scipy.io import wavfile
-from scipy.signal import find_peaks, iirnotch, freqz
+from scipy.signal import find_peaks, iirnotch, freqz, filtfilt
 from scipy.fft import fft, fftfreq
 import matplotlib.pyplot as plt
 import numpy as np
 
-def rta ( frame, window, N):
+
+def rta(frame, window, N):
     """ frame rta with window
         @ param: frame
         @ param: window: taper window to prevent spectral leakage
         @ param: N: sample count
+        @ return: trasformed frame
     """
     frame = frame * window
-    tranformed_frame = np.power(np.abs((fft(frame, N))),2)
+    tranformed_frame = np.power(np.abs((fft(frame, N))), 2)
     return tranformed_frame
 
-def pnpr ( frame, thr ):
+
+def pnpr(frame, thr):
     """ peak to neighbour power ratio:
         @ param: frame
         @ param: thr: detection threshold (suggested: 30)
@@ -32,10 +35,11 @@ def pnpr ( frame, thr ):
     return peaks
     """
     frame = 10*np.log10(frame)
-    peaks, _ = find_peaks( frame, threshold= thr)
+    peaks, _ = find_peaks(frame, threshold=thr)
     return peaks
 
-def phpr ( peaks, frame, thr):
+
+def phpr(peaks, frame, thr):
     """ peak to harmonics power ratio:
         @ param: peaks: possible peaks to be analyzed
         @ param: frame
@@ -53,7 +57,8 @@ def phpr ( peaks, frame, thr):
                 n_peaks.append(peak)
     return n_peaks
 
-def generate_filter ( howlings, df, Q, fs ):
+
+def generate_filter(howlings, df, Q, fs):
     """ generate filter:
         @ param: howlings: found howling indexes
         @ param: df: frequency resolution
@@ -62,8 +67,8 @@ def generate_filter ( howlings, df, Q, fs ):
     """
     iir_notch = []
     for howl in howlings:
-        a,b = iirnotch(howl*df,Q,fs)
-        iir_notch.append([a,b])
+        a, b = iirnotch(howl*df, Q, fs)
+        iir_notch.append([a, b])
         # Frequency response
         freq, h = freqz(b, a, fs=fs)
         # Plot
@@ -76,43 +81,50 @@ def generate_filter ( howlings, df, Q, fs ):
         ax[1].set_ylabel("Angle (degrees)", color='green')
         ax[1].set_xlabel("Frequency (Hz)")
         ax[1].grid()
-        plt.show()
-
+        #plt.show()
     return iir_notch
 
-testfile = '/home/andre/CLionProjects/AntiLarsen/Developing/Resources/test.wav'
-fs, samples = wavfile.read(testfile)
-# sample points
-N = 2048
-# time spacing
-T = 1 / fs
-# freq specing
-f_axis = fftfreq(N,T)[:N//2]
-df = f_axis[1]
-# blackman window
-blackman = np.blackman(N)
-# debug info
-print('Sampling rate: ' + str(fs) + " Hz")
-print('Buffer Length: ' + str(N) + " Samples, " + str(N*T*1000) + " ms")
-print('Frequency resolution: ' + str(df) + ' Hz')
-# right channel scomposition and fft
-frame_r = samples[0:N , 0]
-ft_frame_r = rta(frame_r, blackman, N)
-# consider only positive freq
-ft_frame_r = (ft_frame_r[0:N//2])
-peaks = pnpr(ft_frame_r, 5)
-peaks = phpr(peaks, ft_frame_r, 1)
-filters = generate_filter(peaks,df,30,fs)
-# find peaks
-print (filters)
-print (peaks)
+def apply_filter(frame,filters):
+    for filter in filters:
+        frame = filtfilt(filter[0],filter[1],frame)
+    return frame
 
 
+if __name__ == '__main__':
+    testfile = '/home/andre/CLionProjects/AntiLarsen/Developing/Resources/test.wav'
+    fs, samples = wavfile.read(testfile)
+    # sample points
+    N = 2048
+    # time spacing
+    T = 1 / fs
+    # freq specing
+    f_axis = fftfreq(N, T)[:N//2]
+    df = f_axis[1]
+    # blackman window
+    blackman = np.blackman(N)
+    # debug info
+    print('Sampling rate: ' + str(fs) + " Hz")
+    print('Buffer Length: ' + str(N) + " Samples, " + str(N*T*1000) + " ms")
+    print('Frequency resolution: ' + str(df) + ' Hz')
+    # right channel scomposition and fft
+    frame_r = samples[0:N, 0]
+    ft_frame_r = rta(frame_r, blackman, N)
+    # consider only positive freq
+    ft_frame_r = (ft_frame_r[0:N//2])
+    # find peaks
+    peaks = pnpr(ft_frame_r, 5)
+    peaks = phpr(peaks, ft_frame_r, 1)
+    filters = generate_filter(peaks, df, 30, fs)
+    filtered_frame = apply_filter(frame_r,filters)
+    
+    print(filters)
+    print(peaks)
+    # check filter effectivness
+    peaks = phpr(peaks, filtered_frame, 1)
+    print(peaks)
 
-
-#debug plot
-#plt.plot(f_axis, ft_frame_r)
-#plt.plot(peaks * df, ft_frame_r[peaks], "x")
-#plt.grid()
-#plt.show()
-
+    # debug plot
+    #plt.plot(f_axis, ft_frame_r)
+    #plt.plot(peaks * df, ft_frame_r[peaks], "x")
+    # plt.grid()
+    # plt.show()
