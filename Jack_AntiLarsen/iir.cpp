@@ -1,9 +1,12 @@
 //
 // Created by andre on 4/25/22.
-// br filter class definition
+// filters class definition
 //
 
 #include "iir.h"
+#include <cmath>
+
+
 /*
  * filters bank init:
  * Generates a bank (n = MAX_FILTERS) of second order IIR notch filter
@@ -14,7 +17,7 @@
  * @ f_step = frequency resolution
  * @ f_min = lowest filtered frequency
  */
-filter_bank::filter_bank(float f_sampling, float gb, float q_factor, float f_step, float f_min) {
+preFiltersBank::preFiltersBank(float f_sampling, float gb, float q_factor, float f_step, float f_min) {
     int i = 0;
     float damp;
     float wo;
@@ -25,7 +28,7 @@ filter_bank::filter_bank(float f_sampling, float gb, float q_factor, float f_ste
     this->f_step = (f_sampling/2 - f_min)/MAX_FILTERS;
     this->f_min = f_min;
 
-    damp = sqrt(1 - pow(this->gb,2))/this->gb;
+    damp = sqrt(1 - pow(gb,2))/gb;
     for (auto &filter: this->filters) {
         wo = 2*PI*(f_step*i + f_min)/f_sampling;
         filter.e = 1/(1 + damp*tan(wo/(q_factor*2)));
@@ -37,28 +40,41 @@ filter_bank::filter_bank(float f_sampling, float gb, float q_factor, float f_ste
     }
 }
 
-void filter_bank::br_iir_setup(t_br_coeffs *, struct br_filter *H, int index) {
-    H->e = br_coeff_arr[ind].e;
-    H->p = br_coeff_arr[ind].p;
-    H->d[0] = br_coeff_arr[ind].d[0];
-    H->d[1] = br_coeff_arr[ind].d[1];
-    H->d[2] = br_coeff_arr[ind].d[2];
+void activeFilters::add_filter_to_bank(int index,t_filter filters[]) {
+    if (this->bank.active_filters < MAX_ACTIVE_FILTERS){
+        this->bank.bank[this->bank.active_filters] = &filters[index];
+    }
+    if (this->bank.active_filters == MAX_ACTIVE_FILTERS){
+        this->bank.bank[this->bank.next_insert] = &filters[index];
+        this->bank.next_insert++;
+        if (this->bank.next_insert == 10){
+            this->bank.next_insert = 0;
+        }
+    }
 }
 
-float filter_bank::br_iir_filter(float yin, struct br_filter *H) {
-    float yout;
-
-    H->x[0] = H->x[1];
-    H->x[1] = H->x[2];
-    H->x[2] = yin;
-
-    H->y[0] = H->y[1];
-    H->y[1] = H->y[2];
-
-    H->y[2] = H->d[0]*H->x[2] - H->d[1]*H->x[1] + H->d[0]*H->x[0] + H->d[1]*H->y[1] - H->d[2]*H->y[0];
-
-    yout = H->y[2];
-    return yout;
-    return 0;
+void activeFilters::apply(const float *src, float *dest) {
+    static float x_2 = 0.0f;                    // delayed x, y samples
+    static float x_1 = 0.0f;
+    static float y_2 = 0.0f;
+    static float y_1 = 0.0f;
+    for (int i = 0; i < this->bank.active_filters; ++i) {
+        for (int j = 0; j < BUF_LENGTH; ++j) {
+            // IIR Filters Equation
+            dest[j] = this->bank.bank[i]->e * src[j] +
+                    this->bank.bank[i]->p * x_1 +
+                    this->bank.bank[i]->d[0] * x_2 +
+                    this->bank.bank[i]->d[1] * y_1 +
+                    this->bank.bank[i]->d[2] * y_2;
+            // shift delayed x, y samples
+            x_2 = x_1;
+            x_1 = src[j];
+            y_2 = y_1;
+            y_1 = dest[j];
+        }
+        x_2 = 0.0f;
+        x_1 = 0.0f;
+        y_2 = 0.0f;
+        y_1 = 0.0f;
+    }
 }
-

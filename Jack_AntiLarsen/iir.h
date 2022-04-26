@@ -4,57 +4,64 @@
 
 #ifndef ANTILARSEN_IIR_H
 #define ANTILARSEN_IIR_H
-#include <cmath>
 
-#define MAX_FILTERS 2048
+#define BUF_LENGTH 2048
+#define MAX_FILTERS BUF_LENGTH
+#define MAX_ACTIVE_FILTERS 10
 #define PI 3.1415926
 
-/*This initialization function will create the
-notch filter coefficients array, you have to specify:
-fsfilt = Sampling Frequency
-gb     = Gain at cut frequencies
-Q      = Q factor, Higher Q gives narrower band
-fstep  = Frequency step to increase center frequencies
-in the array
-fmin   = Minimum frequency for the range of center   frequencies
-*/
-
 /*
-Notch filter coefficients object
-*/
-typedef struct br_coeffs {
+ * Iir Notch filter's coefficients
+ */
+typedef struct iir_filter {
     float e;
     float p;
     float d[3];
-} t_br_coeffs;
-
+} t_filter;
 /*
-Notch filter object
-*/
-typedef struct br_filter {
+ * active filters' pointer bank
+ */
+typedef struct bank{
+    t_filter *bank[MAX_ACTIVE_FILTERS];
+    int active_filters = 0;
+    int next_insert = 0;
+}t_bank;
+/*
+ * Notch filter's buffer
+ */
+typedef struct iir_filter_buffer {
     float e;
     float p;
     float d[3];
     float x[3];
     float y[3];
 } t_notch_filter;
-
-class filter_bank{
-    filter_bank(float , float , float , float , float );
+/*
+ * Precomputed filters' bank
+ */
+class preFiltersBank{
+    preFiltersBank(float , float , float , float , float );
 
 public:
-    void br_iir_setup(t_br_coeffs*, struct br_filter * H,int index);
-    float br_iir_filter(float yin,struct br_filter * H);
-    t_br_coeffs filters[MAX_FILTERS];
-    int in_use[10];
+    t_filter filters[MAX_FILTERS];
+
 private:
     float f_sampling = 44100;
     float gb = -10;
     float q_factor = 30;
     float f_step;
     float f_min  = 100;
-
 };
-
+/*
+ * Active filters' bank
+ * Stores pointers to active filters
+ * Apply filters to audio frame
+ */
+class activeFilters{
+public:
+    void apply(const float *src, float *dest);
+    void add_filter_to_bank(int index,t_filter*);
+    t_bank bank;
+};
 
 #endif
