@@ -3,7 +3,7 @@
 // filters class definition
 //
 
-#include "iir.h"
+#include "../include/iir.h"
 #include <cmath>
 
 
@@ -54,7 +54,8 @@ void activeFilters::add_filter_to_bank(int index,t_filter filters[]) {
 }
 
 void activeFilters::apply(const float *src, float *dest) {
-    static float x_2 = 0.0f;                    // delayed x, y samples
+    // delayed x, y samples
+    static float x_2 = 0.0f;
     static float x_1 = 0.0f;
     static float y_2 = 0.0f;
     static float y_1 = 0.0f;

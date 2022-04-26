@@ -4,11 +4,7 @@
 
 #ifndef ANTILARSEN_IIR_H
 #define ANTILARSEN_IIR_H
-
-#define BUF_LENGTH 2048
-#define MAX_FILTERS BUF_LENGTH
-#define MAX_ACTIVE_FILTERS 10
-#define PI 3.1415926
+#include "const.h"
 
 /*
  * Iir Notch filter's coefficients
@@ -43,7 +39,7 @@ class preFiltersBank{
     preFiltersBank(float , float , float , float , float );
 
 public:
-    t_filter filters[MAX_FILTERS];
+    t_filter filters[MAX_FILTERS]{};
 
 private:
     float f_sampling = 44100;
