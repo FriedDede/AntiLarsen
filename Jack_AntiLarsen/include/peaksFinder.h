@@ -8,7 +8,7 @@
 
 class peaksFinder {
 public:
-    explicit peaksFinder(float *buffer, int*);
+    explicit peaksFinder(float *buffer);
     void findHowls(const float *, int*);
     void algoSelect(const bool[3]);
     int found_howls[N_PEAKS];

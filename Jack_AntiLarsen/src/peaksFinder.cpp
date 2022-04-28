@@ -4,9 +4,8 @@
 
 #include "../include/peaksFinder.h"
 
-peaksFinder::peaksFinder(float *buffer, int *peaks_buffer){
+peaksFinder::peaksFinder(float *buffer){
     this->jack_buffer = buffer;
-    this->found_howls = peaks_buffer;
     fftWrapper(buffer, this->buffer[0]);
     for (auto &p: found_howls) {
         p = 0;
