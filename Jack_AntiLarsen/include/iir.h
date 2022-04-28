@@ -15,15 +15,15 @@ typedef struct iir_filter {
     float d[3];
 } t_filter;
 /*
- * active filters' pointer bank
+ * active filters bank
  */
 typedef struct bank{
-    t_filter *bank[MAX_ACTIVE_FILTERS];
+    t_filter *p_filter[MAX_ACTIVE_FILTERS];
     int active_filters = 0;
     int next_insert = 0;
 }t_bank;
 /*
- * Notch filter's buffer
+ * Notch filter buffer
  */
 typedef struct iir_filter_buffer {
     float e;
@@ -33,7 +33,7 @@ typedef struct iir_filter_buffer {
     float y[3];
 } t_notch_filter;
 /*
- * Precomputed filters' bank
+ * Precomputed filters bank
  */
 class preFiltersBank{
     preFiltersBank(float , float , float , float , float );
@@ -42,20 +42,23 @@ public:
     t_filter filters[MAX_FILTERS]{};
 
 private:
+    // Default values
     float f_sampling = 44100;
     float gb = -10;
     float q_factor = 30;
     float f_step;
-    float f_min  = 100;
+    float f_min  = 0;
 };
 /*
- * Active filters' bank
- * Stores pointers to active filters
- * Apply filters to audio frame
+ * Active filters class
+ * Stores pointers to active p_filter
+ * Apply p_filter to audio frame
  */
 class activeFilters{
 public:
-    void apply(const float *src, float *dest);
+    activeFilters();
+
+    bool apply(const float *buf_in, float *buf_out);
     void add_filter_to_bank(int index,t_filter*);
     t_bank bank;
 };

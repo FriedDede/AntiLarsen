@@ -9,6 +9,6 @@
 #define MAX_FILTERS BUF_LENGTH
 #define MAX_ACTIVE_FILTERS 10
 #define PI 3.1415926
-#define PEAKS 10
+#define N_PEAKS 10
 
 #endif
