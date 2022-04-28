@@ -3,6 +3,7 @@
 //
 
 #include "../include/peaksFinder.h"
+#include <cmath>
 
 peaksFinder::peaksFinder(float *buffer){
     this->jack_buffer = buffer;
@@ -17,16 +18,56 @@ void peaksFinder::updateBuffer() {
     this->current_buffer = (this->current_buffer == 2) ? 0 : this->current_buffer++;
 }
 /*
- *  TODO: Peak to Harmonics Power Ratio
+ *  Peak to Harmonics Power Ratio:
+ *  Test if the frequency peaks at index[i] has significant harmonics.
+ *  Howling and feedbacks usually doesn't generate harmonics waves.
+ *  phpr : log10(|Y(wi)|^2/|Y(nwi)|^2)
  */
-void peaksFinder::phpr(const float *buf_in, int *peaks) {
-
+void peaksFinder::phpr(const float *buf_in, int peaks[N_PEAKS]) {
+    for (int i = 0; i < N_PEAKS; ++i) {
+        if (peaks[i] != 0 and i*2 < BUF_LENGTH){
+            if (log10(abs(pow(buf_in[peaks[i]],2))/abs(pow(buf_in[peaks[i]*2],2))) < phpr_threshold) {
+                peaks[i] = 0;
+            }
+            else if (i*3 < BUF_LENGTH){
+                if (log10(abs(pow(buf_in[peaks[i]],2))/abs(pow(buf_in[peaks[i]*3],2))) < phpr_threshold) {
+                    peaks[i] = 0;
+                }
+            }
+        }
+    }
 }
 /*
- * TODO: Peak to Neighbour Power Ratio
+ * Peak to Neighbour Power Ratio
+ *  Test if the frequency peaks at index[i] has leakage in neighbours frequencies.
+ *  Howling and feedbacks are usually very narrow.
+ *  phpr : log10(|Y(wi)|^2/|Y(wi + n(2pi/M)|^2)
  */
-void peaksFinder::pnpr(const float *buf_in, int *peaks) {
-
+void peaksFinder::pnpr(const float *buf_in, int peaks[N_PEAKS]) {
+    for (int i = 0; i < N_PEAKS; ++i) {
+        if(peaks[i] != 0){
+            if (i+1 < BUF_LENGTH){
+                if (log10(abs(pow(buf_in[peaks[i]],2))/abs(pow(buf_in[peaks[i]+1],2))) < pnpr_threshold) {
+                    peaks[i] = 0;
+                }
+            }
+            if (i+2 < BUF_LENGTH) {
+                if (log10(abs(pow(buf_in[peaks[i]], 2)) / abs(pow(buf_in[peaks[i] + 2], 2))) < pnpr_threshold) {
+                    peaks[i] = 0;
+                }
+            }
+            if (i-1 > 0){
+                if (log10(abs(pow(buf_in[peaks[i]],2))/abs(pow(buf_in[peaks[i]-1],2))) < pnpr_threshold) {
+                    peaks[i] = 0;
+                }
+            }
+            if (i-2 > 0) {
+                if (log10(abs(pow(buf_in[peaks[i]], 2)) / abs(pow(buf_in[peaks[i] - 2], 2))) < pnpr_threshold) {
+                    peaks[i] = 0;
+                }
+            }
+        }
+    }
 }
 /*
  * TODO: Interframe Magnitude Slope Deviation
