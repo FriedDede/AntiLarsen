@@ -23,16 +23,6 @@ typedef struct bank{
     int next_insert = 0;
 }t_bank;
 /*
- * Notch filter buffer
- */
-typedef struct iir_filter_buffer {
-    float e;
-    float p;
-    float d[3];
-    float x[3];
-    float y[3];
-} t_notch_filter;
-/*
  * Precomputed filters bank
  */
 class preFiltersBank{
@@ -58,7 +48,7 @@ class activeFilters{
 public:
     activeFilters();
 
-    bool apply(const float *buf_in, float *buf_out);
+    bool applyFilters(const float *buf_in, float *buf_out);
     void add_filter_to_bank(int index,t_filter*);
     t_bank bank;
 };

@@ -9,4 +9,4 @@ add_executable(Jack_AntiLarsen /
         include/iir.h /
         src/peaksFinder.cpp /
         include/peaksFinder.h /
-        include/const.h)
+        include/const.h src/fastmath.cpp include/fastmath.h)

@@ -53,7 +53,7 @@ void activeFilters::add_filter_to_bank(int index,t_filter filters[]) {
     }
 }
 
-bool activeFilters::apply(const float *buf_in, float *buf_out) {
+bool activeFilters::applyFilters(const float *buf_in, float *buf_out) {
     // delayed x, y samples
     static float x_2 = 0.0f;
     static float x_1 = 0.0f;

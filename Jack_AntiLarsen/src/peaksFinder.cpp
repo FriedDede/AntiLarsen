@@ -3,18 +3,27 @@
 //
 
 #include "../include/peaksFinder.h"
+#include "../include/fastmath.h"
 #include <cmath>
+#include <complex>
+#include <fftw3.h>
 
-peaksFinder::peaksFinder(float *buffer){
-    this->jack_buffer = buffer;
-    fftWrapper(buffer, this->buffer[0]);
-    for (auto &p: found_howls) {
-        p = 0;
+peaksFinder::peaksFinder(const float *jack_buffer, const bool settings[3]){
+    this->jack_buffer = jack_buffer;
+    found_howls = (int *) calloc(N_PEAKS,sizeof(int));
+    ft_in = (std::complex<float> *) calloc(BUF_LENGTH, sizeof(std::complex<float>));
+    ft_in = (std::complex<float> *) calloc(BUF_LENGTH, sizeof(std::complex<float>));
+    for (auto &buf: this->buffers) {
+        buf = (float *) calloc(BUF_LENGTH, sizeof(float));
     }
+    algoSelect(settings);
+    this->ft_plan = fftw_plan_dft_1d(BUF_LENGTH, reinterpret_cast<fftw_complex *>(ft_in),\
+    reinterpret_cast<fftw_complex *>(ft_out), FFTW_FORWARD, FFTW_MEASURE);
+    fftWrapper(jack_buffer, this->buffers[0]);
 }
 
 void peaksFinder::updateBuffer() {
-    fftWrapper(jack_buffer, this->buffer[current_buffer]);
+    fftWrapper(jack_buffer, this->buffers[current_buffer]);
     this->current_buffer = (this->current_buffer == 2) ? 0 : this->current_buffer++;
 }
 /*
@@ -26,11 +35,13 @@ void peaksFinder::updateBuffer() {
 void peaksFinder::phpr(const float *buf_in, int peaks[N_PEAKS]) {
     for (int i = 0; i < N_PEAKS; ++i) {
         if (peaks[i] != 0 and i*2 < BUF_LENGTH){
-            if (log10(abs(pow(buf_in[peaks[i]],2))/abs(pow(buf_in[peaks[i]*2],2))) < phpr_threshold) {
+            if (log10f_fast((pow(buf_in[peaks[i]],2))/(pow(buf_in[peaks[i]*2],2)))\
+            < phpr_threshold) {
                 peaks[i] = 0;
             }
             else if (i*3 < BUF_LENGTH){
-                if (log10(abs(pow(buf_in[peaks[i]],2))/abs(pow(buf_in[peaks[i]*3],2))) < phpr_threshold) {
+                if (log10f_fast((pow(buf_in[peaks[i]],2))/(pow(buf_in[peaks[i]*3],2)))\
+                < phpr_threshold) {
                     peaks[i] = 0;
                 }
             }
@@ -47,22 +58,26 @@ void peaksFinder::pnpr(const float *buf_in, int peaks[N_PEAKS]) {
     for (int i = 0; i < N_PEAKS; ++i) {
         if(peaks[i] != 0){
             if (i+1 < BUF_LENGTH){
-                if (log10(abs(pow(buf_in[peaks[i]],2))/abs(pow(buf_in[peaks[i]+1],2))) < pnpr_threshold) {
+                if (2*log10f_fast(buf_in[peaks[i]])-2*log10f_fast((buf_in[peaks[i]+1]))\
+                < pnpr_threshold) {
                     peaks[i] = 0;
                 }
             }
             if (i+2 < BUF_LENGTH) {
-                if (log10(abs(pow(buf_in[peaks[i]], 2)) / abs(pow(buf_in[peaks[i] + 2], 2))) < pnpr_threshold) {
+                if (log10f_fast((pow(buf_in[peaks[i]], 2)) / (pow(buf_in[peaks[i] + 2], 2)))\
+                < pnpr_threshold) {
                     peaks[i] = 0;
                 }
             }
             if (i-1 > 0){
-                if (log10(abs(pow(buf_in[peaks[i]],2))/abs(pow(buf_in[peaks[i]-1],2))) < pnpr_threshold) {
+                if (log10f_fast((pow(buf_in[peaks[i]],2))/(pow(buf_in[peaks[i]-1],2)))\
+                < pnpr_threshold) {
                     peaks[i] = 0;
                 }
             }
             if (i-2 > 0) {
-                if (log10(abs(pow(buf_in[peaks[i]], 2)) / abs(pow(buf_in[peaks[i] - 2], 2))) < pnpr_threshold) {
+                if (log10f_fast((pow(buf_in[peaks[i]], 2)) / (pow(buf_in[peaks[i] - 2], 2)))\
+                < pnpr_threshold) {
                     peaks[i] = 0;
                 }
             }
@@ -79,19 +94,30 @@ void peaksFinder::imsd(const float *buf_in, int *peaks) {
  * TODO: Implement some kind of fast ft
  */
 void peaksFinder::fftWrapper(const float *buf_in, float *buf_out) {
-
+    for (int i = 0; i < BUF_LENGTH; ++i) {
+        this->ft_in[i] = buf_in[i];
+    }
+    fftw_execute(this->ft_plan);
+    for (int i = 0; i < BUF_LENGTH; ++i) {
+        buffers[this->current_buffer][i] = std::abs(this->ft_out[i]);
+    }
 }
 /*
  * TODO: Howls finder, find 10 highest peaks, run phpr, pnpr, imsd on them
  * TODO: write howling indexes in found_howls if found
  */
-void peaksFinder::findHowls(const float *buf_in, int *peaks) {
+void peaksFinder::run() {
+    int * peaks = this->found_howls;
+    float *buf_in = this->buffers[this->current_buffer];
+
     for (int i = 0; i < N_PEAKS; ++i) {
         peaks[i] = 0;
     }
     for (int i = 0; i < BUF_LENGTH; ++i) {
-        if (buf_in[i] > buf_in[peaks[0]]) peaks[0] = i;
-        minHead(buf_in,peaks);
+        if (buf_in[i] > buf_in[peaks[0]]){
+            peaks[0] = i;
+            minHead(buf_in,peaks);
+        }
     }
     if(this->run_phpr) phpr(buf_in,peaks);
     if(this->run_pnpr) pnpr(buf_in,peaks);
@@ -113,5 +139,15 @@ void peaksFinder::algoSelect(const bool settings[3]) {
     this->run_phpr = settings[0];
     this->run_pnpr = settings[1];
     this->run_imsd = settings[2];
+}
+
+peaksFinder::~peaksFinder() {
+    fftw_destroy_plan(this->ft_plan);
+    free(ft_in);
+    free(ft_out);
+    free(found_howls);
+    for (auto &buf: this->buffers) {
+        free(buf);
+    }
 }
 
