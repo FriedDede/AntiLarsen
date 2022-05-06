@@ -10,32 +10,46 @@
 
 class peaksFinder {
 public:
-    explicit peaksFinder(const float *jack_buffer, const bool *settings);
+    explicit peaksFinder(const float *input, const bool *settings);
     void run();
-    void algoSelect(const bool[3]);
+    void setEnableAlgo(const bool *);
 
+    void setPhprThreshold(float phprThreshold);
+    void setPnprThreshold(float pnprThreshold);
+    void setImsdThreshold(float imsdThreshold);
+    float getPhprThreshold() const;
+    float getPnprThreshold() const;
+    float getImsdThreshold() const;
+    bool isRunPhpr() const;
+    bool isRunPnpr() const;
+    bool isRunImsd() const;
+    int found_howls[N_PEAKS];
     virtual ~peaksFinder();
 private:
     fftw_plan ft_plan;
     std::complex<float> *ft_in;
     std::complex<float> *ft_out;
-    int *found_howls;
     const float *jack_buffer;
+public:
+    void setJackBuffer(const float *jackBuffer);
+
+private:
     float *buffers[3];
     int current_buffer = 0;
 
-    void phpr(const float *, int *);
-    void pnpr(const float *, int *);
-    void imsd(const float *, int *);
+    bool phpr(const float *);
+    bool pnpr(const float *);
+    bool imsd(const float *);
     void fftWrapper(const float *, float *);
     void updateBuffer();
     static void inline minHead(const float*, int *);
 /*
  * Thresholds for howling frequencies detection (in dB)
  */
-    const float phpr_threshold = 10.0f;
-    const float pnpr_threshold = 30.0f;
-    const float imsd_threshold = 1.0f;
+private:
+    float phpr_threshold = 10.0f;
+    float pnpr_threshold = 30.0f;
+    float imsd_threshold = 1.0f;
 
     bool run_phpr = true;
     bool run_pnpr = true;

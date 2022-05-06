@@ -9,17 +9,19 @@
 #include <fftw3.h>
 
 peaksFinder::peaksFinder(const float *jack_buffer, const bool settings[3]){
+    // locate jack audio buffer
     this->jack_buffer = jack_buffer;
-    found_howls = (int *) calloc(N_PEAKS,sizeof(int));
+    /*
+     * todo: test fftw_complex *fftw_malloc() for SSE/AVX speedup
+     */
     ft_in = (std::complex<float> *) calloc(BUF_LENGTH, sizeof(std::complex<float>));
-    ft_in = (std::complex<float> *) calloc(BUF_LENGTH, sizeof(std::complex<float>));
-    for (auto &buf: this->buffers) {
-        buf = (float *) calloc(BUF_LENGTH, sizeof(float));
-    }
-    algoSelect(settings);
+    ft_out = (std::complex<float> *) calloc(BUF_LENGTH, sizeof(std::complex<float>));
+    for (auto &buf: this->buffers) buf = (float *) calloc(BUF_LENGTH, sizeof(float));
+    // select which algorithm will be run
+    setEnableAlgo(settings);
+    // fftw3 plan creation
     this->ft_plan = fftw_plan_dft_1d(BUF_LENGTH, reinterpret_cast<fftw_complex *>(ft_in),\
     reinterpret_cast<fftw_complex *>(ft_out), FFTW_FORWARD, FFTW_MEASURE);
-    fftWrapper(jack_buffer, this->buffers[0]);
 }
 
 void peaksFinder::updateBuffer() {
@@ -31,67 +33,80 @@ void peaksFinder::updateBuffer() {
  *  Test if the frequency peaks at index[i] has significant harmonics.
  *  Howling and feedbacks usually doesn't generate harmonics waves.
  *  phpr : log10(|Y(wi)|^2/|Y(nwi)|^2)
+ *  todo: minimize runtime, even if analysis is not online runtime is critical.
  */
-void peaksFinder::phpr(const float *buf_in, int peaks[N_PEAKS]) {
+bool peaksFinder::phpr(const float *buf_in) {
+    bool ret = false;
     for (int i = 0; i < N_PEAKS; ++i) {
-        if (peaks[i] != 0 and i*2 < BUF_LENGTH){
-            if (log10f_fast((pow(buf_in[peaks[i]],2))/(pow(buf_in[peaks[i]*2],2)))\
-            < phpr_threshold) {
-                peaks[i] = 0;
-            }
-            else if (i*3 < BUF_LENGTH){
-                if (log10f_fast((pow(buf_in[peaks[i]],2))/(pow(buf_in[peaks[i]*3],2)))\
+        if (this->found_howls[i] != 0){
+            ret = true;
+            if (i*2 < BUF_LENGTH) {
+                if (2 * log10f_fast(buf_in[this->found_howls[i]] / buf_in[this->found_howls[i] * 2])\
                 < phpr_threshold) {
-                    peaks[i] = 0;
+                    this->found_howls[i] = 0;
+                }
+            }
+            if (i*3 < BUF_LENGTH){
+                if (2 * log10f_fast(buf_in[this->found_howls[i]] / buf_in[this->found_howls[i] * 3])\
+                < phpr_threshold) {
+                    this->found_howls[i] = 0;
                 }
             }
         }
     }
+    return ret;
 }
 /*
- * Peak to Neighbour Power Ratio
+ *  Peak to Neighbour Power Ratio
  *  Test if the frequency peaks at index[i] has leakage in neighbours frequencies.
  *  Howling and feedbacks are usually very narrow.
  *  phpr : log10(|Y(wi)|^2/|Y(wi + n(2pi/M)|^2)
+ *  todo: minimize runtime, even if analysis is not online runtime is critical.
  */
-void peaksFinder::pnpr(const float *buf_in, int peaks[N_PEAKS]) {
+bool peaksFinder::pnpr(const float *buf_in) {
+    bool ret = false;
     for (int i = 0; i < N_PEAKS; ++i) {
-        if(peaks[i] != 0){
+        if(this->found_howls[i] != 0){
+            ret = true;
             if (i+1 < BUF_LENGTH){
-                if (2*log10f_fast(buf_in[peaks[i]])-2*log10f_fast((buf_in[peaks[i]+1]))\
+                if (2*log10f_fast(buf_in[this->found_howls[i]] / buf_in[this->found_howls[i]+1])\
                 < pnpr_threshold) {
-                    peaks[i] = 0;
+                    this->found_howls[i] = 0;
                 }
             }
             if (i+2 < BUF_LENGTH) {
-                if (log10f_fast((pow(buf_in[peaks[i]], 2)) / (pow(buf_in[peaks[i] + 2], 2)))\
+                if (2*log10f_fast(buf_in[this->found_howls[i]] / buf_in[this->found_howls[i] + 2])\
                 < pnpr_threshold) {
-                    peaks[i] = 0;
+                    this->found_howls[i] = 0;
                 }
             }
             if (i-1 > 0){
-                if (log10f_fast((pow(buf_in[peaks[i]],2))/(pow(buf_in[peaks[i]-1],2)))\
+                if (2*log10f_fast(buf_in[this->found_howls[i]] / buf_in[this->found_howls[i] - 1])\
                 < pnpr_threshold) {
-                    peaks[i] = 0;
+                    this->found_howls[i] = 0;
                 }
             }
             if (i-2 > 0) {
-                if (log10f_fast((pow(buf_in[peaks[i]], 2)) / (pow(buf_in[peaks[i] - 2], 2)))\
+                if (2*log10f_fast(buf_in[this->found_howls[i]] / buf_in[this->found_howls[i] - 2])\
                 < pnpr_threshold) {
-                    peaks[i] = 0;
+                    this->found_howls[i] = 0;
                 }
             }
         }
     }
+    return ret;
 }
 /*
  * TODO: Interframe Magnitude Slope Deviation
  */
-void peaksFinder::imsd(const float *buf_in, int *peaks) {
+bool peaksFinder::imsd(const float *buf_in) {
+    bool ret = true;
 
+
+    return ret;
 }
 /*
- * TODO: Implement some kind of fast ft
+ * buf_out = abs(fft(buf_in))
  */
 void peaksFinder::fftWrapper(const float *buf_in, float *buf_out) {
     for (int i = 0; i < BUF_LENGTH; ++i) {
@@ -103,10 +118,12 @@ void peaksFinder::fftWrapper(const float *buf_in, float *buf_out) {
     }
 }
 /*
- * TODO: Howls finder, find 10 highest peaks, run phpr, pnpr, imsd on them
- * TODO: write howling indexes in found_howls if found
+ * Howls finder:
+ * find 10 highest peaks, run phpr, pnpr, imsd if enabled.
+ * write howling frequencies indexes in found_howls, if detected.
  */
 void peaksFinder::run() {
+    updateBuffer();
     int * peaks = this->found_howls;
     float *buf_in = this->buffers[this->current_buffer];
 
@@ -119,9 +136,9 @@ void peaksFinder::run() {
             minHead(buf_in,peaks);
         }
     }
-    if(this->run_phpr) phpr(buf_in,peaks);
-    if(this->run_pnpr) pnpr(buf_in,peaks);
-    if(this->run_imsd) imsd(buf_in,peaks);
+    if(this->run_phpr) { if (!phpr(buf_in)) return; }
+    if(this->run_pnpr) { if (!pnpr(buf_in)) return; }
+    if(this->run_imsd) imsd(buf_in);
 }
 
 void inline peaksFinder::minHead(const float *buf_in, int *peaks) {
@@ -135,7 +152,7 @@ void inline peaksFinder::minHead(const float *buf_in, int *peaks) {
     peaks[0] = tmp;
 }
 
-void peaksFinder::algoSelect(const bool settings[3]) {
+void peaksFinder::setEnableAlgo(const bool *settings) {
     this->run_phpr = settings[0];
     this->run_pnpr = settings[1];
     this->run_imsd = settings[2];
@@ -149,5 +166,45 @@ peaksFinder::~peaksFinder() {
     for (auto &buf: this->buffers) {
         free(buf);
     }
+}
+
+void peaksFinder::setPhprThreshold(float phprThreshold) {
+    this->phpr_threshold = phprThreshold;
+}
+
+void peaksFinder::setPnprThreshold(float pnprThreshold) {
+    this->pnpr_threshold = pnprThreshold;
+}
+
+void peaksFinder::setImsdThreshold(float imsdThreshold) {
+    this->imsd_threshold = imsdThreshold;
+}
+
+float peaksFinder::getPhprThreshold() const {
+    return phpr_threshold;
+}
+
+float peaksFinder::getPnprThreshold() const {
+    return pnpr_threshold;
+}
+
+float peaksFinder::getImsdThreshold() const {
+    return imsd_threshold;
+}
+
+bool peaksFinder::isRunPhpr() const {
+    return run_phpr;
+}
+
+bool peaksFinder::isRunPnpr() const {
+    return run_pnpr;
+}
+
+bool peaksFinder::isRunImsd() const {
+    return run_imsd;
+}
+
+void peaksFinder::setJackBuffer(const float *jackBuffer) {
+    jack_buffer = jackBuffer;
 }
 

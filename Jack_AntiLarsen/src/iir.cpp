@@ -17,7 +17,7 @@
  * @ f_step = frequency resolution
  * @ f_min = lowest filtered frequency
  */
-preFiltersBank::preFiltersBank(float f_sampling, float gb, float q_factor, float f_step, float f_min) {
+preFiltersBank::preFiltersBank(float f_sampling, float gb, float q_factor, float f_min) {
     int i = 0;
     float damp;
     float wo;
@@ -40,6 +40,18 @@ preFiltersBank::preFiltersBank(float f_sampling, float gb, float q_factor, float
     }
 }
 
+void preFiltersBank::setFSampling(float new_f_sampling) {
+    this->f_sampling = new_f_sampling;
+}
+
+void preFiltersBank::setGb(float new_gb) {
+    this->gb = new_gb;
+}
+
+void preFiltersBank::setQFactor(float new_q_factor) {
+    this->q_factor = new_q_factor;
+}
+
 void activeFilters::add_filter_to_bank(int index,t_filter filters[]) {
     if (this->bank.active_filters < MAX_ACTIVE_FILTERS){
         this->bank.p_filter[this->bank.active_filters] = &filters[index];
@@ -53,7 +65,7 @@ void activeFilters::add_filter_to_bank(int index,t_filter filters[]) {
     }
 }
 
-bool activeFilters::applyFilters(const float *buf_in, float *buf_out) {
+bool activeFilters::applyFilters() {
     // delayed x, y samples
     static float x_2 = 0.0f;
     static float x_1 = 0.0f;
@@ -92,4 +104,12 @@ activeFilters::activeFilters() {
     }
     this->bank.active_filters = 0;
     this->bank.next_insert = 0;
+}
+
+void activeFilters::setIn(float *in) {
+    activeFilters::in = in;
+}
+
+void activeFilters::setOut(float *out) {
+    activeFilters::out = out;
 }

@@ -26,10 +26,13 @@ typedef struct bank{
  * Precomputed filters bank
  */
 class preFiltersBank{
-    preFiltersBank(float , float , float , float , float );
 
 public:
     t_filter filters[MAX_FILTERS]{};
+    preFiltersBank(float , float , float , float );
+    void setFSampling(float new_f_sampling);
+    void setGb(float new_gb);
+    void setQFactor(float new_q_factor);
 
 private:
     // Default values
@@ -47,10 +50,15 @@ private:
 class activeFilters{
 public:
     activeFilters();
-
-    bool applyFilters(const float *buf_in, float *buf_out);
+    bool applyFilters();
     void add_filter_to_bank(int index,t_filter*);
     t_bank bank;
+    void setIn(float *in);
+    void setOut(float *out);
+private:
+    float *buf_in;
+    float *buf_out;
+
 };
 
 #endif

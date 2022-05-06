@@ -6,7 +6,7 @@
 #include "cmath"
 // This is a fast approximation to log2()
 // Y = C[0]*F*F*F + C[1]*F*F + C[2]*F + C[3] + E;
-float log2f_approx(float X) {
+float log2f_approx(const float X) {
     float Y, F;
     int E;
     F = frexpf(fabsf(X), &E);
@@ -17,6 +17,6 @@ float log2f_approx(float X) {
     Y += 6.02197014179219f;
     Y *= F;
     Y += -3.13396450166353f;
-    Y += E;
+    Y += (float)E;
     return(Y);
 }
