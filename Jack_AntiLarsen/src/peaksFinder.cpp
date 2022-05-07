@@ -204,7 +204,7 @@ bool peaksFinder::isRunImsd() const {
     return run_imsd;
 }
 
-void peaksFinder::setJackBuffer(const float *jackBuffer) {
+void peaksFinder::setBuffer(const float *jackBuffer) {
     jack_buffer = jackBuffer;
 }
 

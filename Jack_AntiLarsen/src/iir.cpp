@@ -59,7 +59,7 @@ void activeFilters::add_filter_to_bank(int index,t_filter filters[]) {
     if (this->bank.active_filters == MAX_ACTIVE_FILTERS){
         this->bank.p_filter[this->bank.next_insert] = &filters[index];
         this->bank.next_insert++;
-        if (this->bank.next_insert == 10){
+        if (this->bank.next_insert == 9){
             this->bank.next_insert = 0;
         }
     }
@@ -107,9 +107,9 @@ activeFilters::activeFilters() {
 }
 
 void activeFilters::setIn(float *in) {
-    activeFilters::in = in;
+    activeFilters::buf_in = in;
 }
 
 void activeFilters::setOut(float *out) {
-    activeFilters::out = out;
+    activeFilters::buf_out = out;
 }

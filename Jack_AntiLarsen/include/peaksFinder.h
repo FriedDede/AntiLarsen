@@ -31,7 +31,7 @@ private:
     std::complex<float> *ft_out;
     const float *jack_buffer;
 public:
-    void setJackBuffer(const float *jackBuffer);
+    void setBuffer(const float *jackBuffer);
 
 private:
     float *buffers[3];

@@ -13,7 +13,7 @@ add_executable(Jack_AntiLarsen
         src/fastmath.cpp
         include/fastmath.h
         /usr/include/ladspa.h
-        )
+        LADSPA.cpp include/localtools.h)
 
 target_link_libraries(Jack_AntiLarsen
         fftw3)
