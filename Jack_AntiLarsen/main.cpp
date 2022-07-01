@@ -4,7 +4,7 @@
 #include <jack/types.h>
 #include "include/iir.h"
 #include "include/peaksFinder.h"
-#include <threads.h>
+#include "include/activeFilters.h"
 #include <cstdlib>
 #include <cstring>
 
@@ -12,14 +12,26 @@ jack_port_t *input_port;
 jack_port_t *output_port;
 jack_client_t *client;
 
-int
-process (jack_nframes_t nframes, void *arg)
-{
-    jack_default_audio_sample_t *in, *out;
+preFiltersBank *filters;
+activeFilters *dsp;
+peaksFinder *analyzer;
 
-    in = (jack_default_audio_sample_t *)jack_port_get_buffer (input_port, nframes);
-    out = (jack_default_audio_sample_t *)jack_port_get_buffer (output_port, nframes);
-    memcpy (out, in,sizeof (jack_default_audio_sample_t) * nframes);
+int process (jack_nframes_t nframes, void *arg){
+    float *in, *out;
+    in = (float *)jack_port_get_buffer (input_port, nframes);
+    out = (float *)jack_port_get_buffer (output_port, nframes);
+    analyzer->run(in);
+
+    dsp->setIn(in,(int)nframes);
+    dsp->setOut(out,(int)nframes);
+    dsp->reset_bank();
+    for (auto &f_idx: analyzer->found_howls) {
+        if (f_idx != 0){
+            dsp->add_filter_to_bank(f_idx, filters->filters);
+        }
+    }
+    dsp->applyFilters();
+    memcpy (out, dsp->getBufOut(),sizeof (jack_default_audio_sample_t) * nframes);
 
     return 0;
 }
@@ -28,21 +40,32 @@ process (jack_nframes_t nframes, void *arg)
  * JACK calls this shutdown_callback if the server ever shuts down or
  * decides to disconnect the client.
  */
-void
-jack_shutdown (void *arg)
+void jack_shutdown (void *arg)
 {
     exit (1);
 }
 
-int
-main (int argc, char *argv[])
+int main (int argc, char *argv[])
 {
     const char **ports;
     const char *client_name = "simple";
     const char *server_name = nullptr;
     jack_options_t options = JackNullOption;
     jack_status_t status;
+    bool analyzer_settings[3];
 
+    /* Default settings */
+    analyzer_settings[0]= true; // enable pnpr
+    analyzer_settings[1]= true; // enable phpr
+    analyzer_settings[2]= false; // enable imsd
+    float f_sampling = 44100;
+    float gb = -10;
+    float q_factor = 30;
+    float f_min  = 20;
+    /* Plugin init */
+    filters = new preFiltersBank(f_sampling,gb,q_factor,f_min);
+    dsp = new activeFilters;
+    analyzer = new peaksFinder(analyzer_settings);
     /* open a client connection to the JACK server */
 
     client = jack_client_open (client_name, options, &status, server_name);

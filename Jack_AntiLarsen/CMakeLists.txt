@@ -8,13 +8,16 @@ add_executable(Jack_AntiLarsen
         src/iir.cpp
         src/fastmath.cpp
         src/peaksFinder.cpp
-
+        src/activeFilters.cpp
         include/peaksFinder.h
         include/const.h
         include/iir.h
         include/fastmath.h
-        include/localtools.h)
+        include/localtools.h
+        include/activeFilters.h
+        )
 
 target_link_libraries(Jack_AntiLarsen
         jack
-        fftw3)
+        fftw3
+        )

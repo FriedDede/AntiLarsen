@@ -8,9 +8,9 @@
 #include <complex>
 #include <fftw3.h>
 
-peaksFinder::peaksFinder(const float *jack_buffer, const bool settings[3]){
+peaksFinder::peaksFinder(const bool settings[3]){
     // locate jack audio buffer
-    this->jack_buffer = jack_buffer;
+    this->jack_buffer = nullptr;
     /*
      * todo: test fftw_complex *fftw_malloc() for SSE/AVX speedup
      */
@@ -24,9 +24,10 @@ peaksFinder::peaksFinder(const float *jack_buffer, const bool settings[3]){
     reinterpret_cast<fftw_complex *>(ft_out), FFTW_FORWARD, FFTW_MEASURE);
 }
 
-void peaksFinder::updateBuffer() {
-    fftWrapper(jack_buffer, this->buffers[current_buffer]);
-    this->current_buffer = (this->current_buffer == 2) ? 0 : this->current_buffer++;
+void peaksFinder::updateBuffer(const float *jack_buffer_update) {
+    this->jack_buffer = jack_buffer_update;
+    fftWrapper(this->jack_buffer, this->buffers[current_buffer_idx]);
+    this->current_buffer_idx = (this->current_buffer_idx == 2) ? 0 : this->current_buffer_idx++;
 }
 /*
  *  Peak to Harmonics Power Ratio:
@@ -114,7 +115,7 @@ void peaksFinder::fftWrapper(const float *buf_in, float *buf_out) {
     }
     fftw_execute(this->ft_plan);
     for (int i = 0; i < BUF_LENGTH; ++i) {
-        buffers[this->current_buffer][i] = std::abs(this->ft_out[i]);
+        buffers[this->current_buffer_idx][i] = std::abs(this->ft_out[i]);
     }
 }
 /*
@@ -122,10 +123,10 @@ void peaksFinder::fftWrapper(const float *buf_in, float *buf_out) {
  * find 10 highest peaks, run phpr, pnpr, imsd if enabled.
  * write howling frequencies indexes in found_howls, if detected.
  */
-void peaksFinder::run() {
-    updateBuffer();
+void peaksFinder::run(const float *jackBuffer) {
+    updateBuffer(jackBuffer);
     int * peaks = this->found_howls;
-    float *buf_in = this->buffers[this->current_buffer];
+    float *buf_in = this->buffers[this->current_buffer_idx];
 
     for (int i = 0; i < N_PEAKS; ++i) {
         peaks[i] = 0;
@@ -204,7 +205,7 @@ bool peaksFinder::isRunImsd() const {
     return run_imsd;
 }
 
-void peaksFinder::setBuffer(const float *jackBuffer) {
+void peaksFinder::setInputBuffer(const float *jackBuffer) {
     jack_buffer = jackBuffer;
 }
 
