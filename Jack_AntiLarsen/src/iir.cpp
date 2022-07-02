@@ -5,35 +5,39 @@
 
 #include "../include/iir.h"
 #include <cmath>
+#include <complex>
 /*
  * precomputed filter init:
  * Generates a filter (n = N_PRE_FILTERS) of second order IIR notch filter
  * params:
- * @ f_sampling = sampling frequency (in Hz)
- * @ gb = gain at center frequency
- * @ q_factor = quality factor, q = w0/bw, bw is the -3dB bandwidth
- * @ f_min = lowest filtered frequency
+ * @ f_sampling_in = sampling frequency (in Hz)
+ * @ gb_in = gain at center frequency
+ * @ q_factor_in = quality factor, q = w0/bw, bw is the -3dB bandwidth
+ * @ f_min_in = lowest filtered frequency
+ * TODO: verify the math is correct (studia capra)
  */
-preFiltersBank::preFiltersBank(float f_sampling, float gb, float q_factor, float f_min) {
-    int i = 0;
+preFiltersBank::preFiltersBank(float f_sampling_in, float gb_in, float q_factor_in, float f_min_in) {
     float damp;
     float wo;
+    float f;
 
-    this->f_sampling = f_sampling;
-    this->gb = gb;
-    this->q_factor = q_factor;
-    this->f_step = (25000.0f - f_min)/(float)N_PRE_FILTERS;
-    this->f_min = f_min;
+    this->f_sampling = f_sampling_in;
+    this->gb = gb_in;
+    this->q_factor = q_factor_in;
+    this->f_step = (f_sampling_in - f_min_in) / (float)N_PRE_FILTERS;
+    this->f_min = f_min_in;
 
-    damp = sqrt(1 - pow(gb,2))/gb;
+    f= f_min_in;
+
+    damp = sqrtf(std::abs(1.0f - powf(gb_in, 2.0f))) / gb_in;
     for (auto &filter: this->filters) {
-        wo = 2*PI*(f_step*i + f_min)/f_sampling;
-        filter.e = 1/(1 + damp*tan(wo/(q_factor*2)));
+        wo = 2.0f * PI * (f) / f_sampling_in;
+        filter.e = 1.0f/(1.0f + damp*tan(wo/(q_factor_in * 2.0f)));
         filter.p = cos(wo);
         filter.d[0] = filter.e;
         filter.d[1] = 2*filter.e*filter.p;
         filter.d[2] = (2*filter.e-1);
-        i++;
+        f += f_step;
     }
 }
 
