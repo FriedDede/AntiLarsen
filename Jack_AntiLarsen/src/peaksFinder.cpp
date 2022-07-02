@@ -7,22 +7,28 @@
 #include <cmath>
 #include <complex>
 #include <fftw3.h>
+#include <iostream>
 
-peaksFinder::peaksFinder(const bool settings[3]){
+peaksFinder::peaksFinder(const bool settings[3]) {
     // locate jack audio buffer
     this->jack_buffer = nullptr;
     /*
      * todo: test fftw_complex *fftw_malloc() for SSE/AVX speedup
      */
-    ft_in = (std::complex<float> *) calloc(BUF_LENGTH, sizeof(std::complex<float>));
-    ft_out = (std::complex<float> *) calloc(BUF_LENGTH, sizeof(std::complex<float>));
+    try {
+        this->ft_in = (std::complex<float> *) calloc(BUF_LENGTH, sizeof(std::complex<float>));
+        this->ft_out = (std::complex<float> *) calloc(BUF_LENGTH, sizeof(std::complex<float>));
+    } catch (const std::exception &e) {
+        std::cout << e.what();
+    }
+
     for (auto &buf: this->buffers) buf = (float *) calloc(BUF_LENGTH, sizeof(float));
     for (auto &i: this->found_howls) i = 0;
     // select which algorithm will be run
     setEnableAlgo(settings);
     // fftw3 plan creation
-    this->ft_plan = fftw_plan_dft_1d(BUF_LENGTH, reinterpret_cast<fftw_complex *>(ft_in),\
-    reinterpret_cast<fftw_complex *>(ft_out), FFTW_FORWARD, FFTW_MEASURE);
+    this->ft_plan = fftwf_plan_dft_1d(BUF_LENGTH, reinterpret_cast<fftwf_complex *>(ft_in),\
+    reinterpret_cast<fftwf_complex *>(ft_out), FFTW_FORWARD, FFTW_MEASURE);
 }
 
 void peaksFinder::updateBuffer(const float *jack_buffer_update) {
@@ -114,7 +120,7 @@ void peaksFinder::fftWrapper(const float *buf_in, float *buf_out) {
     for (int i = 0; i < BUF_LENGTH; ++i) {
         this->ft_in[i] = buf_in[i];
     }
-    fftw_execute(this->ft_plan);
+    fftwf_execute(this->ft_plan);
     for (int i = 0; i < BUF_LENGTH; ++i) {
         buffers[this->current_buffer_idx][i] = std::abs(this->ft_out[i]);
     }
@@ -138,8 +144,8 @@ void peaksFinder::run(const float *jackBuffer) {
             minHead(buf_in,peaks);
         }
     }
-    if(this->run_phpr) { if (!phpr(buf_in)) return; }
     if(this->run_pnpr) { if (!pnpr(buf_in)) return; }
+    if(this->run_phpr) { if (!phpr(buf_in)) return; }
     if(this->run_imsd) imsd(buf_in);
 }
 
@@ -161,7 +167,7 @@ void peaksFinder::setEnableAlgo(const bool *settings) {
 }
 
 peaksFinder::~peaksFinder() {
-    fftw_destroy_plan(this->ft_plan);
+    fftwf_destroy_plan(this->ft_plan);
     free(ft_in);
     free(ft_out);
     free(found_howls);

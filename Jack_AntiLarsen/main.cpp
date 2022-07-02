@@ -24,14 +24,16 @@ int process (jack_nframes_t nframes, void *arg){
 
     dsp->setInOutBuffers(in,out, (int) nframes);
     dsp->reset_bank();
+
     for (auto &f_idx: analyzer->found_howls) {
         if (f_idx != 0){
             dsp->add_filter_to_bank(f_idx, filters->filters);
+            std::cout << f_idx;
         }
     }
     dsp->applyFilters();
-    memcpy (out, dsp->getBufOut(),sizeof (jack_default_audio_sample_t) * nframes);
 
+    memcpy (out, in,sizeof (jack_default_audio_sample_t) * nframes);
     return 0;
 }
 
@@ -39,8 +41,10 @@ int process (jack_nframes_t nframes, void *arg){
  * JACK calls this shutdown_callback if the server ever shuts down or
  * decides to disconnect the client.
  */
-void jack_shutdown (void *arg)
-{
+void jack_shutdown (void *arg){
+    delete dsp;
+    delete analyzer;
+    delete filters;
     exit (1);
 }
 
@@ -61,12 +65,8 @@ int main (int argc, char *argv[])
     float gb = -10;
     float q_factor = 30;
     float f_min  = 20;
-    /* Plugin init */
-    filters = new preFiltersBank(f_sampling,gb,q_factor,f_min);
-    dsp = new activeFilters;
-    analyzer = new peaksFinder(analyzer_settings);
-    /* open a client connection to the JACK server */
 
+    /* open a client connection to the JACK server */
     client = jack_client_open (client_name, options, &status, server_name);
     if (client == nullptr) {
         fprintf (stderr, "jack_client_open() failed, "
@@ -84,7 +84,40 @@ int main (int argc, char *argv[])
         fprintf (stderr, "unique name `%s' assigned\n", client_name);
     }
 
-    /* tell the JACK server to call `process()' whenever
+    /* Plugin init */
+    filters = new preFiltersBank((float)jack_get_sample_rate(client),gb,q_factor,f_min);
+    if (filters == nullptr) {
+        std::cout << "Unable to initialize precomputed filters bank, quitting." << std::endl;
+        exit(EXIT_FAILURE);
+    }
+    else{
+        std::cout << "Filters settings:" << std::endl;
+        std::cout << "  Sample rate: " << (float )jack_get_sample_rate(client) << std::endl;
+        std::cout << "  Gain at cut-off: " << gb << " dB" << std::endl;
+        std::cout << "  Q factor: " << q_factor <<std::endl;
+        std::cout << "  Min Frequency: " << f_min << " Hz" << std::endl;
+        std::cout << "Filters computed" << std::endl << std::endl;
+    }
+    dsp = new activeFilters;
+    if (dsp == nullptr){
+        std::cout << "Unable to initialize dsp, quitting."<< std::endl;
+        exit(EXIT_FAILURE);
+    }
+    else std::cout << "DSP started" << std::endl << std::endl;
+    analyzer = new peaksFinder(analyzer_settings);
+    if (analyzer == nullptr){
+        std::cout << "Unable to initialize analyzer, quitting."<< std::endl;
+        exit (EXIT_FAILURE);
+    }
+    else {
+        std::cout << "Analyzer settings:"<< std::endl;
+        std::cout << "   Power to Harmonics power ratio: "<< analyzer->isRunPhpr() << std::endl;
+        std::cout << "   Power to Neighbours power ratio: "<< analyzer->isRunPnpr() << std::endl;
+        std::cout << "   Inter-frame Magnitude Slope Deviation: "<< analyzer->isRunImsd() << std::endl;
+        std::cout << "Analyzer started"<< std::endl;
+    }
+
+    /* tell the JACK server to call `process()' wheneverS
        there is work to be done.
     */
 
@@ -161,7 +194,7 @@ int main (int argc, char *argv[])
 
     /* keep running until stopped by the user */
 
-    while(true){};
+    while(true);
 
     /* this is never reached but if the program
        had some other way to exit besides being killed,

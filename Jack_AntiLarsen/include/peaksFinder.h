@@ -34,7 +34,7 @@ private:
     void updateBuffer(const float *);
     static void inline minHead(const float*, int *);
 
-    fftw_plan ft_plan;
+    fftwf_plan ft_plan;
     std::complex<float> *ft_in;
     std::complex<float> *ft_out;
     const float *jack_buffer;

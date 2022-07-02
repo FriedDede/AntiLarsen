@@ -19,5 +19,5 @@ add_executable(Jack_AntiLarsen
 
 target_link_libraries(Jack_AntiLarsen
         /usr/lib64/pipewire-0.3/jack/libjack.so.0
-        fftw3
+        fftw3f
         )
