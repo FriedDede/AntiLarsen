@@ -64,19 +64,13 @@ bool activeFilters::applyFilters() {
     return true;
 }
 
-void activeFilters::setIn(float *in, int nframes_update) {
+void activeFilters::setInOutBuffers(float *in, float * out, int nframes_update) {
     if (nframes_update != this->nframes) {
         this->nframes = nframes_update;
         buf_in = (float *) malloc(sizeof(float) * nframes_update);
+        buf_out = out;
     }
     memcpy (buf_in, in,sizeof (jack_default_audio_sample_t) * nframes);
-}
-
-void activeFilters::setOut(float *out, int nframes_update) {
-    if (nframes_update != this->nframes) {
-        this->nframes = nframes_update;
-        buf_out = (float *) malloc(sizeof(float) * nframes_update);
-    }
 }
 
 float *activeFilters::getBufOut() const {

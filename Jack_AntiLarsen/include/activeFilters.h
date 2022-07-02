@@ -24,8 +24,7 @@ public:
     void reset_bank();
     void add_filter_to_bank(int index,t_filter*);
     t_bank bank;
-    void setIn(float *in,int nframes);
-    void setOut(float *out, int nframes);
+    void setInOutBuffers(float *in, float* out, int nframes);
     float *getBufOut() const;
 private:
     float *buf_in;

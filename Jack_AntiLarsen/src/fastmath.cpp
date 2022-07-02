@@ -20,3 +20,7 @@ float log2f_approx(const float X) {
     Y += (float)E;
     return(Y);
 }
+//log10f as log2(x)/log2(10.0f)
+float log10f_fast(const float X){
+    return log2f_approx(X)*0.3010299956639812f;
+};

@@ -22,8 +22,7 @@ int process (jack_nframes_t nframes, void *arg){
     out = (float *)jack_port_get_buffer (output_port, nframes);
     analyzer->run(in);
 
-    dsp->setIn(in,(int)nframes);
-    dsp->setOut(out,(int)nframes);
+    dsp->setInOutBuffers(in,out, (int) nframes);
     dsp->reset_bank();
     for (auto &f_idx: analyzer->found_howls) {
         if (f_idx != 0){
@@ -48,7 +47,7 @@ void jack_shutdown (void *arg)
 int main (int argc, char *argv[])
 {
     const char **ports;
-    const char *client_name = "simple";
+    const char *client_name = "FDB-Killer";
     const char *server_name = nullptr;
     jack_options_t options = JackNullOption;
     jack_status_t status;

@@ -17,6 +17,7 @@ peaksFinder::peaksFinder(const bool settings[3]){
     ft_in = (std::complex<float> *) calloc(BUF_LENGTH, sizeof(std::complex<float>));
     ft_out = (std::complex<float> *) calloc(BUF_LENGTH, sizeof(std::complex<float>));
     for (auto &buf: this->buffers) buf = (float *) calloc(BUF_LENGTH, sizeof(float));
+    for (auto &i: this->found_howls) i = 0;
     // select which algorithm will be run
     setEnableAlgo(settings);
     // fftw3 plan creation
@@ -167,6 +168,7 @@ peaksFinder::~peaksFinder() {
     for (auto &buf: this->buffers) {
         free(buf);
     }
+    free(buffers);
 }
 
 void peaksFinder::setPhprThreshold(float phprThreshold) {

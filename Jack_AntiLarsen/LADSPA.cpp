@@ -3,14 +3,11 @@
 // LADSPA integration handlers
 //
 #include <iostream>
-#include <jack/jack.h>
 #include "include/iir.h"
 #include "include/peaksFinder.h"
 #include "include/localtools.h"
-#include <threads.h>
 #include "ladspa.h"
 #include <cstdlib>
-#include <cstring>
 
 static LADSPA_Descriptor * g_psDescriptors;
 static preFiltersBank *bank = nullptr;
@@ -22,7 +19,6 @@ static bool runnable = false;
  * LADSPA instantiate handle
  */
 static LADSPA_Handle instantiate(const LADSPA_Descriptor *,unsigned long f_sampling) {
-
     bool setting[3] = {true,true,true};
     bank = new preFiltersBank((float)f_sampling,-10,30,0);
     filters = new activeFilters;
