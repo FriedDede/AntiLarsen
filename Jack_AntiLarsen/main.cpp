@@ -18,22 +18,23 @@ peaksFinder *analyzer;
 
 int process (jack_nframes_t nframes, void *arg){
     float *in, *out;
+    bool larsen = false;
     in = (float *)jack_port_get_buffer (input_port, nframes);
     out = (float *)jack_port_get_buffer (output_port, nframes);
     analyzer->run(in);
 
     dsp->setInOutBuffers(in,out, (int) nframes);
-    dsp->reset_bank();
-
-    for (auto &f_idx: analyzer->found_howls) {
+    for (auto f_idx: analyzer->found_howls) {
         if (f_idx != 0){
             dsp->add_filter_to_bank(f_idx, filters->filters);
+            larsen = true;
             std::cout << f_idx;
         }
     }
-    dsp->applyFilters();
+    if (larsen) dsp->applyFilters();
+    else memcpy (out, in,sizeof (jack_default_audio_sample_t) * nframes);
 
-    memcpy (out, in,sizeof (jack_default_audio_sample_t) * nframes);
+    dsp->reset_bank();
     return 0;
 }
 
@@ -111,48 +112,43 @@ int main (int argc, char *argv[])
     }
     else {
         std::cout << "Analyzer settings:"<< std::endl;
-        std::cout << "   Power to Harmonics power ratio: "<< analyzer->isRunPhpr() << std::endl;
-        std::cout << "   Power to Neighbours power ratio: "<< analyzer->isRunPnpr() << std::endl;
-        std::cout << "   Inter-frame Magnitude Slope Deviation: "<< analyzer->isRunImsd() << std::endl;
+        std::cout << "   Power to Harmonics power ratio: "<< analyzer->isRunPhpr() <<
+                        "   threshold: " << analyzer->getPhprThreshold() << std::endl;
+        std::cout << "   Power to Neighbours power ratio: "<< analyzer->isRunPnpr() <<
+                        "   threshold: " << analyzer->getPnprThreshold() << std::endl;
+        std::cout << "   Inter-frame Magnitude Slope Deviation: "<< analyzer->isRunImsd() <<
+                        "   threshold: " << analyzer->getImsdThreshold() << std::endl;
         std::cout << "Analyzer started"<< std::endl;
     }
 
     /* tell the JACK server to call `process()' wheneverS
-       there is work to be done.
-    */
-
+     * there is work to be done.
+     * */
     jack_set_process_callback (client, process, 0);
-
     /* tell the JACK server to call `jack_shutdown()' if
-       it ever shuts down, either entirely, or if it
-       just decides to stop calling us.
-    */
-
+     * it ever shuts down, either entirely, or if it
+     * just decides to stop calling us.
+     * */
     jack_on_shutdown (client, jack_shutdown, 0);
-
-    /* display the current sample rate.
-     */
-
-    printf ("engine sample rate: %" PRIu32 "\n",
-            jack_get_sample_rate (client));
+    /*
+     * display the current sample rate.
+     * */
+    printf ("engine sample rate: %" PRIu32 "\n", jack_get_sample_rate (client));
 
     /* create two ports */
-
     input_port = jack_port_register (client, "input",
                                      JACK_DEFAULT_AUDIO_TYPE,
-                                     JackPortIsInput, 0);
+                                     JackPortIsInput, 2048);
     output_port = jack_port_register (client, "output",
                                       JACK_DEFAULT_AUDIO_TYPE,
-                                      JackPortIsOutput, 0);
-
+                                      JackPortIsOutput, 2048);
     if ((input_port == nullptr) || (output_port == nullptr)) {
         fprintf(stderr, "no more JACK ports available\n");
         exit (1);
     }
-
     /* Tell the JACK server that we are ready to roll.  Our
-     * process() callback will start running now. */
-
+     * process() callback will start running now.
+     * */
     if (jack_activate (client)) {
         fprintf (stderr, "cannot activate client");
         exit (1);
@@ -165,18 +161,15 @@ int main (int argc, char *argv[])
      * "input" to the backend, and capture ports are "output" from
      * it.
      */
-
-    ports = jack_get_ports (client, nullptr, nullptr,
+    ports = jack_get_ports (client, nullptr,nullptr,
                             JackPortIsPhysical|JackPortIsOutput);
     if (ports == nullptr) {
         fprintf(stderr, "no physical capture ports\n");
         exit (1);
     }
-
     if (jack_connect (client, ports[0], jack_port_name (input_port))) {
         fprintf (stderr, "cannot connect input ports\n");
     }
-
     free (ports);
 
     ports = jack_get_ports (client, nullptr, nullptr,
@@ -185,7 +178,6 @@ int main (int argc, char *argv[])
         fprintf(stderr, "no physical playback ports\n");
         exit (1);
     }
-
     if (jack_connect (client, jack_port_name (output_port), ports[0])) {
         fprintf (stderr, "cannot connect output ports\n");
     }
@@ -193,14 +185,11 @@ int main (int argc, char *argv[])
     free (ports);
 
     /* keep running until stopped by the user */
-
     while(true);
-
     /* this is never reached but if the program
-       had some other way to exit besides being killed,
-       they would be important to call.
-    */
-
+     * had some other way to exit besides being killed,
+     * they would be important to call.
+     * */
     jack_client_close (client);
     exit (0);
 }

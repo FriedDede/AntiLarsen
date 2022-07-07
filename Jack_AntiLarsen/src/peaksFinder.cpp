@@ -15,12 +15,8 @@ peaksFinder::peaksFinder(const bool settings[3]) {
     /*
      * todo: test fftw_complex *fftw_malloc() for SSE/AVX speedup
      */
-    try {
-        this->ft_in = (std::complex<float> *) calloc(BUF_LENGTH, sizeof(std::complex<float>));
-        this->ft_out = (std::complex<float> *) calloc(BUF_LENGTH, sizeof(std::complex<float>));
-    } catch (const std::exception &e) {
-        std::cout << e.what();
-    }
+    this->ft_in = (std::complex<float> *) calloc(BUF_LENGTH, sizeof(std::complex<float>));
+    this->ft_out = (std::complex<float> *) calloc(BUF_LENGTH, sizeof(std::complex<float>));
 
     for (auto &buf: this->buffers) buf = (float *) calloc(BUF_LENGTH, sizeof(float));
     for (auto &i: this->found_howls) i = 0;
