@@ -3,8 +3,8 @@
 #include <jack/jack.h>
 #include <jack/types.h>
 #include "include/iir.h"
-#include "include/peaksFinder.h"
-#include "include/activeFilters.h"
+#include "include/Analyzer.h"
+#include "include/DSP.h"
 #include <cstdlib>
 #include <cstring>
 
@@ -13,8 +13,8 @@ jack_port_t *output_port;
 jack_client_t *client;
 
 preFiltersBank *filters;
-activeFilters *dsp;
-peaksFinder *analyzer;
+DSP *dsp;
+Analyzer *analyzer;
 
 int process (jack_nframes_t nframes, void *arg){
     float *in, *out;
@@ -28,7 +28,8 @@ int process (jack_nframes_t nframes, void *arg){
         if (f_idx != 0){
             dsp->add_filter_to_bank(f_idx, filters->filters);
             larsen = true;
-            std::cout << f_idx;
+            // debug only
+            std::cout << f_idx << std::endl;
         }
     }
     if (larsen) dsp->applyFilters();
@@ -99,13 +100,13 @@ int main (int argc, char *argv[])
         std::cout << "  Min Frequency: " << f_min << " Hz" << std::endl;
         std::cout << "Filters computed" << std::endl << std::endl;
     }
-    dsp = new activeFilters;
+    dsp = new DSP;
     if (dsp == nullptr){
         std::cout << "Unable to initialize dsp, quitting."<< std::endl;
         exit(EXIT_FAILURE);
     }
     else std::cout << "DSP started" << std::endl << std::endl;
-    analyzer = new peaksFinder(analyzer_settings);
+    analyzer = new Analyzer(analyzer_settings);
     if (analyzer == nullptr){
         std::cout << "Unable to initialize analyzer, quitting."<< std::endl;
         exit (EXIT_FAILURE);
@@ -138,10 +139,10 @@ int main (int argc, char *argv[])
     /* create two ports */
     input_port = jack_port_register (client, "input",
                                      JACK_DEFAULT_AUDIO_TYPE,
-                                     JackPortIsInput, 2048);
+                                     JackPortIsInput, 0);
     output_port = jack_port_register (client, "output",
                                       JACK_DEFAULT_AUDIO_TYPE,
-                                      JackPortIsOutput, 2048);
+                                      JackPortIsOutput, 0);
     if ((input_port == nullptr) || (output_port == nullptr)) {
         fprintf(stderr, "no more JACK ports available\n");
         exit (1);

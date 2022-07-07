@@ -7,5 +7,4 @@
 
     float log2f_approx(float);
     float log10f_fast(float);
-
 #endif

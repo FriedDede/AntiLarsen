@@ -2,21 +2,18 @@
 // Created by andre on 4/26/22.
 //
 
-#ifndef JACK_ANTILARSEN_PEAKSFINDER_H
-#define JACK_ANTILARSEN_PEAKSFINDER_H
+#ifndef JACK_ANTILARSEN_ANALYZER_H
+#define JACK_ANTILARSEN_ANALYZER_H
 #include "const.h"
 #include <fftw3.h>
 #include <complex>
 
-class peaksFinder {
+class Analyzer {
 public:
-    explicit peaksFinder(const bool *settings);
+    explicit Analyzer(const bool *settings);
     void run(const float *jackBuffer);
     void setInputBuffer(const float *jackBuffer);
     void setEnableAlgo(const bool *);
-    void setPhprThreshold(float phprThreshold);
-    void setPnprThreshold(float pnprThreshold);
-    void setImsdThreshold(float imsdThreshold);
     float getPhprThreshold() const;
     float getPnprThreshold() const;
     float getImsdThreshold() const;
@@ -24,7 +21,7 @@ public:
     bool isRunPnpr() const;
     bool isRunImsd() const;
     int found_howls[N_PEAKS];
-    virtual ~peaksFinder();
+    virtual ~Analyzer();
 
 private:
     bool phpr(const float *);
@@ -33,12 +30,14 @@ private:
     void fftWrapper(const float *);
     void updateBuffer(const float *);
     static void inline minHead(const float*, int *);
+    void blackman_win(int);
 
     fftwf_plan ft_plan;
     std::complex<float> *ft_in;
     std::complex<float> *ft_out;
     const float *jack_buffer;
     float *buffers[3];
+    float blackman[BUF_LENGTH];
 /*
  * Thresholds for howling frequencies detection (in dB)
  */

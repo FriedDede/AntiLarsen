@@ -2,14 +2,14 @@
 // Created by andre on 4/26/22.
 //
 
-#include "../include/peaksFinder.h"
+#include "../include/Analyzer.h"
 #include "../include/fastmath.h"
 #include <cmath>
 #include <complex>
 #include <fftw3.h>
 #include <iostream>
 
-peaksFinder::peaksFinder(const bool settings[3]) {
+Analyzer::Analyzer(const bool settings[3]) {
     // locate jack audio buffer
     this->jack_buffer = nullptr;
     /*
@@ -22,12 +22,38 @@ peaksFinder::peaksFinder(const bool settings[3]) {
     for (auto &i: this->found_howls) i = 0;
     // select which algorithm will be run
     setEnableAlgo(settings);
+    blackman_win(BUF_LENGTH);
     // fftw3 plan creation
     this->ft_plan = fftwf_plan_dft_1d(BUF_LENGTH, reinterpret_cast<fftwf_complex *>(ft_in),\
     reinterpret_cast<fftwf_complex *>(ft_out), FFTW_FORWARD, FFTW_MEASURE);
+
 }
 
-void peaksFinder::updateBuffer(const float *jack_buffer_update) {
+void Analyzer::blackman_win(int nsamples) {
+    int nsamples_periodic = nsamples++;
+    for (int i = 0; i < (nsamples_periodic+1)/2; ++i) {
+        this->blackman[i]=0.42f -
+                           0.5f*cosf(2.0f*PI*(float)i/(nsamples_periodic-1)) +
+                           0.08f*cosf(4.0f*PI*(float)i/(nsamples_periodic-1));
+        if (i + (nsamples_periodic+1)/2 < nsamples){
+            this->blackman[i+(nsamples_periodic+1/2)]= this->blackman[i];
+        }
+    }
+}
+/*
+ * buf_out = abs(fft(buf_in))
+ */
+void Analyzer::fftWrapper(const float *buf_in) {
+    for (int i = 0; i < BUF_LENGTH; ++i) {
+        this->ft_in[i] = buf_in[i]*this->blackman[i];
+    }
+    fftwf_execute(this->ft_plan);
+    for (int i = 0; i < BUF_LENGTH; ++i) {
+        this->buffers[0][i] = std::abs(this->ft_out[i]);
+    }
+}
+
+void Analyzer::updateBuffer(const float *jack_buffer_update) {
     this->jack_buffer = jack_buffer_update;
 }
 /*
@@ -37,7 +63,7 @@ void peaksFinder::updateBuffer(const float *jack_buffer_update) {
  *  phpr : log10(|Y(wi)|^2/|Y(nwi)|^2)
  *  todo: minimize runtime, even if analysis is not online runtime is critical.
  */
-bool peaksFinder::phpr(const float *buf_in) {
+bool Analyzer::phpr(const float *buf_in) {
     bool ret = false;
     for (int i = 0; i < N_PEAKS; ++i) {
         if (this->found_howls[i] != 0){
@@ -65,7 +91,7 @@ bool peaksFinder::phpr(const float *buf_in) {
  *  phpr : log10(|Y(wi)|^2/|Y(wi + n(2pi/M)|^2)
  *  todo: minimize runtime, even if analysis is not online runtime is critical.
  */
-bool peaksFinder::pnpr(const float *buf_in) {
+bool Analyzer::pnpr(const float *buf_in) {
     bool ret = false;
     for (int i = 0; i < N_PEAKS; ++i) {
         if(this->found_howls[i] != 0){
@@ -101,35 +127,23 @@ bool peaksFinder::pnpr(const float *buf_in) {
 /*
  * TODO: Interframe Magnitude Slope Deviation
  */
-bool peaksFinder::imsd(const float *buf_in) {
+bool Analyzer::imsd(const float *buf_in) {
     bool ret = true;
 
 
     return ret;
 }
 /*
- * buf_out = abs(fft(buf_in))
- */
-void peaksFinder::fftWrapper(const float *buf_in) {
-    for (int i = 0; i < BUF_LENGTH; ++i) {
-        this->ft_in[i] = buf_in[i];
-    }
-    fftwf_execute(this->ft_plan);
-    for (int i = 0; i < BUF_LENGTH; ++i) {
-        this->buffers[0][i] = std::abs(this->ft_out[i]);
-    }
-}
-/*
  * Howls finder:
  * find 10 highest peaks, run phpr, pnpr, imsd if enabled.
  * write howling frequencies indexes in found_howls, if detected.
  */
-void peaksFinder::run(const float *jackBuffer) {
+void Analyzer::run(const float *jackBuffer) {
     updateBuffer(jackBuffer);
     fftWrapper(this->jack_buffer);
     float *buf_in = this->buffers[0];
-    for (int i = 0; i < N_PEAKS; ++i) {
-        this->found_howls[i] = 0;
+    for (int & found_howl : this->found_howls) {
+        found_howl = 0;
     }
     for (int i = 0; i < BUF_LENGTH; ++i) {
         if (buf_in[i] > buf_in[this->found_howls[0]]){
@@ -148,7 +162,7 @@ void peaksFinder::run(const float *jackBuffer) {
     this->buffers[0]=t;
 }
 
-void inline peaksFinder::minHead(const float *buf_in, int *peaks) {
+void inline Analyzer::minHead(const float *buf_in, int *peaks) {
     int min_peak = 0;
     int tmp = 0;
     for (int i = 0; i < N_PEAKS; ++i) {
@@ -159,13 +173,13 @@ void inline peaksFinder::minHead(const float *buf_in, int *peaks) {
     peaks[0] = tmp;
 }
 
-void peaksFinder::setEnableAlgo(const bool *settings) {
+void Analyzer::setEnableAlgo(const bool *settings) {
     this->run_phpr = settings[0];
     this->run_pnpr = settings[1];
     this->run_imsd = settings[2];
 }
 
-peaksFinder::~peaksFinder() {
+Analyzer::~Analyzer() {
     fftwf_destroy_plan(this->ft_plan);
     free(ft_in);
     free(ft_out);
@@ -176,43 +190,33 @@ peaksFinder::~peaksFinder() {
     free(buffers);
 }
 
-void peaksFinder::setPhprThreshold(float phprThreshold) {
-    this->phpr_threshold = phprThreshold;
-}
-
-void peaksFinder::setPnprThreshold(float pnprThreshold) {
-    this->pnpr_threshold = pnprThreshold;
-}
-
-void peaksFinder::setImsdThreshold(float imsdThreshold) {
-    this->imsd_threshold = imsdThreshold;
-}
-
-float peaksFinder::getPhprThreshold() const {
+float Analyzer::getPhprThreshold() const {
     return phpr_threshold;
 }
 
-float peaksFinder::getPnprThreshold() const {
+float Analyzer::getPnprThreshold() const {
     return pnpr_threshold;
 }
 
-float peaksFinder::getImsdThreshold() const {
+float Analyzer::getImsdThreshold() const {
     return imsd_threshold;
 }
 
-bool peaksFinder::isRunPhpr() const {
+bool Analyzer::isRunPhpr() const {
     return run_phpr;
 }
 
-bool peaksFinder::isRunPnpr() const {
+bool Analyzer::isRunPnpr() const {
     return run_pnpr;
 }
 
-bool peaksFinder::isRunImsd() const {
+bool Analyzer::isRunImsd() const {
     return run_imsd;
 }
 
-void peaksFinder::setInputBuffer(const float *jackBuffer) {
+void Analyzer::setInputBuffer(const float *jackBuffer) {
     jack_buffer = jackBuffer;
 }
+
+
 

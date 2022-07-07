@@ -4,7 +4,7 @@
 //
 #include <iostream>
 #include "include/iir.h"
-#include "include/peaksFinder.h"
+#include "include/Analyzer.h"
 #include "include/localtools.h"
 #include "ladspa.h"
 #include <cstdlib>

@@ -25,17 +25,3 @@ float log2f_approx(const float X) {
 float log10f_fast(const float X){
     return log2f_approx(X)*0.3010299956639812f;
 };
-
-float *blackman(int nsamples){
-    int nsamples_periodic = nsamples++;
-    auto blackman_window = (float *) malloc(sizeof(float)*nsamples);
-    for (int i = 0; i < (nsamples_periodic+1)/2; ++i) {
-        blackman_window[i]=0.42f -
-                0.5f*cosf(2.0f*PI*(float)i/(nsamples_periodic-1)) +
-                0.08f*cosf(4.0f*PI*(float)i/(nsamples_periodic-1));
-        if (i + (nsamples_periodic+1)/2 < nsamples){
-            blackman_window[i+(nsamples_periodic+1/2)]= blackman_window[i];
-        }
-    }
-    return blackman_window;
-};
