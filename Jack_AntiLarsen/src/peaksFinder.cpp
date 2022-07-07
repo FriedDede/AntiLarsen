@@ -29,8 +29,6 @@ peaksFinder::peaksFinder(const bool settings[3]) {
 
 void peaksFinder::updateBuffer(const float *jack_buffer_update) {
     this->jack_buffer = jack_buffer_update;
-    fftWrapper(this->jack_buffer, this->buffers[current_buffer_idx]);
-    this->current_buffer_idx = (this->current_buffer_idx == 2) ? 0 : this->current_buffer_idx++;
 }
 /*
  *  Peak to Harmonics Power Ratio:
@@ -112,13 +110,13 @@ bool peaksFinder::imsd(const float *buf_in) {
 /*
  * buf_out = abs(fft(buf_in))
  */
-void peaksFinder::fftWrapper(const float *buf_in, float *buf_out) {
+void peaksFinder::fftWrapper(const float *buf_in) {
     for (int i = 0; i < BUF_LENGTH; ++i) {
         this->ft_in[i] = buf_in[i];
     }
     fftwf_execute(this->ft_plan);
     for (int i = 0; i < BUF_LENGTH; ++i) {
-        buffers[this->current_buffer_idx][i] = std::abs(this->ft_out[i]);
+        this->buffers[0][i] = std::abs(this->ft_out[i]);
     }
 }
 /*
@@ -128,21 +126,26 @@ void peaksFinder::fftWrapper(const float *buf_in, float *buf_out) {
  */
 void peaksFinder::run(const float *jackBuffer) {
     updateBuffer(jackBuffer);
-    int * peaks = this->found_howls;
-    float *buf_in = this->buffers[this->current_buffer_idx];
-
+    fftWrapper(this->jack_buffer);
+    float *buf_in = this->buffers[0];
     for (int i = 0; i < N_PEAKS; ++i) {
-        peaks[i] = 0;
+        this->found_howls[i] = 0;
     }
     for (int i = 0; i < BUF_LENGTH; ++i) {
-        if (buf_in[i] > buf_in[peaks[0]]){
-            peaks[0] = i;
-            minHead(buf_in,peaks);
+        if (buf_in[i] > buf_in[this->found_howls[0]]){
+            this->found_howls[0] = i;
+            minHead(buf_in,this->found_howls);
         }
     }
+    // recognize larsen effetcs
     if(this->run_pnpr) { if (!pnpr(buf_in)) return; }
     if(this->run_phpr) { if (!phpr(buf_in)) return; }
     if(this->run_imsd) imsd(buf_in);
+    // swap buffers order
+    float *t = this->buffers[2];
+    this->buffers[2]= this->buffers[1];
+    this->buffers[1]= this->buffers[0];
+    this->buffers[0]=t;
 }
 
 void inline peaksFinder::minHead(const float *buf_in, int *peaks) {

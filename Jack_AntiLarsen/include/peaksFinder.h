@@ -30,7 +30,7 @@ private:
     bool phpr(const float *);
     bool pnpr(const float *);
     bool imsd(const float *);
-    void fftWrapper(const float *, float *);
+    void fftWrapper(const float *);
     void updateBuffer(const float *);
     static void inline minHead(const float*, int *);
 
@@ -39,7 +39,6 @@ private:
     std::complex<float> *ft_out;
     const float *jack_buffer;
     float *buffers[3];
-    int current_buffer_idx = 0;
 /*
  * Thresholds for howling frequencies detection (in dB)
  */
