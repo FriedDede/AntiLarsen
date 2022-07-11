@@ -7,6 +7,7 @@
 #include "include/DSP.h"
 #include <cstdlib>
 #include <cstring>
+#include <unistd.h>
 
 jack_port_t *input_port;
 jack_port_t *output_port;
@@ -21,7 +22,7 @@ int process (jack_nframes_t nframes, void *arg){
     bool larsen = false;
     in = (float *)jack_port_get_buffer (input_port, nframes);
     out = (float *)jack_port_get_buffer (output_port, nframes);
-    analyzer->run(in);
+    analyzer->analyzeBuffer(in);
 
     dsp->setInOutBuffers(in,out, (int) nframes);
     for (auto f_idx: analyzer->found_howls) {
@@ -29,7 +30,7 @@ int process (jack_nframes_t nframes, void *arg){
             dsp->add_filter_to_bank(f_idx, filters->filters);
             larsen = true;
             // debug only
-            std::cout << f_idx << std::endl;
+            std::cout << f_idx*FSTEP << std::endl;
         }
     }
     if (larsen) dsp->applyFilters();
@@ -60,13 +61,13 @@ int main (int argc, char *argv[])
     bool analyzer_settings[3];
 
     /* Default settings */
-    analyzer_settings[0]= true; // enable pnpr
-    analyzer_settings[1]= true; // enable phpr
+    analyzer_settings[0]= true; // enable phpr
+    analyzer_settings[1]= true; // enable pnpr
     analyzer_settings[2]= false; // enable imsd
-    float f_sampling = 44100;
+
     float gb = -10;
     float q_factor = 30;
-    float f_min  = 20;
+    float f_min  = 0;
 
     /* open a client connection to the JACK server */
     client = jack_client_open (client_name, options, &status, server_name);
@@ -186,7 +187,7 @@ int main (int argc, char *argv[])
     free (ports);
 
     /* keep running until stopped by the user */
-    while(true);
+    sleep(-1);
     /* this is never reached but if the program
      * had some other way to exit besides being killed,
      * they would be important to call.

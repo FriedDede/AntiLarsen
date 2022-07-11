@@ -23,13 +23,13 @@ public:
     bool applyFilters();
     void reset_bank();
     void add_filter_to_bank(int index,t_filter*);
-    t_bank bank;
     void setInOutBuffers(float *in, float* out, int nframes);
     float *getBufOut() const;
 private:
     float *buf_in;
     float *buf_out;
     int nframes = 0;
+    t_bank bank;
 };
 
 #endif

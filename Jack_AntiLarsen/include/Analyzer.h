@@ -11,7 +11,7 @@
 class Analyzer {
 public:
     explicit Analyzer(const bool *settings);
-    void run(const float *jackBuffer);
+    void analyzeBuffer(const float *jackBuffer);
     void setInputBuffer(const float *jackBuffer);
     void setEnableAlgo(const bool *);
     float getPhprThreshold() const;
@@ -23,17 +23,19 @@ public:
     int found_howls[N_PEAKS];
     virtual ~Analyzer();
 
+    std::complex<float> *getFtOut() const;
+    float *getOutBuffer() const;
+
 private:
     bool phpr(const float *);
     bool pnpr(const float *);
     bool imsd(const float *);
     void fftWrapper(const float *);
-    void updateBuffer(const float *);
     static void inline minHead(const float*, int *);
     void blackman_win(int);
 
     fftwf_plan ft_plan;
-    std::complex<float> *ft_in;
+    float *ft_in;
     std::complex<float> *ft_out;
     const float *jack_buffer;
     float *buffers[3];
@@ -41,9 +43,9 @@ private:
 /*
  * Thresholds for howling frequencies detection (in dB)
  */
-    float phpr_threshold = 10.0f;
-    float pnpr_threshold = 30.0f;
-    float imsd_threshold = 1.0f;
+    static constexpr float phpr_threshold = 10.0f;
+    static constexpr float pnpr_threshold = 25.5f;
+    static constexpr float imsd_threshold = 1.0f;
 
     bool run_phpr = true;
     bool run_pnpr = true;

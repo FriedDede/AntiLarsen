@@ -26,7 +26,7 @@ public:
     void setQFactor(float new_q_factor);
 private:
     // Default values
-    float f_sampling = 44100;
+    float f_sampling = 48000;
     float gb = -10;
     float q_factor = 30;
     float f_step;

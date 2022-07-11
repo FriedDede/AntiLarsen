@@ -18,15 +18,17 @@ DSP::DSP() {
 }
 
 void DSP::add_filter_to_bank(int index, t_filter filters[]) {
-    if (this->bank.active_filters < MAX_ACTIVE_FILTERS){
-        this->bank.p_filter[this->bank.active_filters] = &filters[index];
-        this->bank.active_filters++;
-    }
-    if (this->bank.active_filters == MAX_ACTIVE_FILTERS){
-        this->bank.p_filter[this->bank.next_insert] = &filters[index];
-        this->bank.next_insert++;
-        if (this->bank.next_insert == 9){
-            this->bank.next_insert = 0;
+    if (index < N_PRE_FILTERS){
+        if (this->bank.active_filters < MAX_ACTIVE_FILTERS){
+            this->bank.p_filter[this->bank.active_filters] = &filters[index];
+            this->bank.active_filters++;
+        }
+        if (this->bank.active_filters == MAX_ACTIVE_FILTERS){
+            this->bank.p_filter[this->bank.next_insert] = &filters[index];
+            this->bank.next_insert++;
+            if (this->bank.next_insert == 9){
+                this->bank.next_insert = 0;
+            }
         }
     }
 }
@@ -41,11 +43,11 @@ bool DSP::applyFilters() {
         if (this->bank.p_filter[i] != nullptr){
             for (int j = 0; j < BUF_LENGTH; ++j) {
                 // IIR Filters Equation
-                buf_out[j] = this->bank.p_filter[i]->e * buf_in[j] +
+                buf_out[j] = 0.5f*(this->bank.p_filter[i]->e * buf_in[j] +
                              this->bank.p_filter[i]->p * x_1 +
-                             this->bank.p_filter[i]->d[0] * x_2 +
-                             this->bank.p_filter[i]->d[1] * y_1 +
-                             this->bank.p_filter[i]->d[2] * y_2;
+                             this->bank.p_filter[i]->d[0] * x_2 -
+                             this->bank.p_filter[i]->d[1] * y_1 -
+                             this->bank.p_filter[i]->d[2] * y_2);
                 // shift delayed x, y samples
                 x_2 = x_1;
                 x_1 = buf_in[j];

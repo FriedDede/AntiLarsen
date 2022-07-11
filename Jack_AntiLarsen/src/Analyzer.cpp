@@ -12,50 +12,47 @@
 Analyzer::Analyzer(const bool settings[3]) {
     // locate jack audio buffer
     this->jack_buffer = nullptr;
-    /*
-     * todo: test fftw_complex *fftw_malloc() for SSE/AVX speedup
-     */
-    this->ft_in = (std::complex<float> *) calloc(BUF_LENGTH, sizeof(std::complex<float>));
-    this->ft_out = (std::complex<float> *) calloc(BUF_LENGTH, sizeof(std::complex<float>));
 
-    for (auto &buf: this->buffers) buf = (float *) calloc(BUF_LENGTH, sizeof(float));
+    this->ft_in = (float *) calloc(BUF_LENGTH,sizeof(float));
+    this->ft_out = (std::complex<float> *) fftwf_alloc_complex(FFTOUT_BUF_LENGTH);
+
+    for (auto &buf: this->buffers)
+        buf = (float *) calloc(FFTOUT_BUF_LENGTH, sizeof(float));
+
     for (auto &i: this->found_howls) i = 0;
+
     // select which algorithm will be run
     setEnableAlgo(settings);
     blackman_win(BUF_LENGTH);
     // fftw3 plan creation
-    this->ft_plan = fftwf_plan_dft_1d(BUF_LENGTH, reinterpret_cast<fftwf_complex *>(ft_in),\
-    reinterpret_cast<fftwf_complex *>(ft_out), FFTW_FORWARD, FFTW_MEASURE);
+    this->ft_plan = fftwf_plan_dft_r2c_1d(BUF_LENGTH, ft_in,\
+    reinterpret_cast<fftwf_complex *>(ft_out), FFTW_MEASURE);
 
 }
 
 void Analyzer::blackman_win(int nsamples) {
-    int nsamples_periodic = nsamples++;
-    for (int i = 0; i < (nsamples_periodic+1)/2; ++i) {
+    int nsamples_periodic = nsamples + 1;
+    this->blackman[0]=0.0f;
+    for (int i = 1; i < (nsamples_periodic+1)/2; ++i) {
         this->blackman[i]=0.42f -
                            0.5f*cosf(2.0f*PI*(float)i/(nsamples_periodic-1)) +
                            0.08f*cosf(4.0f*PI*(float)i/(nsamples_periodic-1));
-        if (i + (nsamples_periodic+1)/2 < nsamples){
-            this->blackman[i+(nsamples_periodic+1/2)]= this->blackman[i];
-        }
+        this->blackman[nsamples_periodic-i-1]= this->blackman[i];
     }
 }
 /*
- * buf_out = abs(fft(buf_in))
+ * buf_out = abs(fft(jack_buf))
  */
-void Analyzer::fftWrapper(const float *buf_in) {
+void Analyzer::fftWrapper(const float *jack_buf) {
     for (int i = 0; i < BUF_LENGTH; ++i) {
-        this->ft_in[i] = buf_in[i]*this->blackman[i];
+        this->ft_in[i] = jack_buf[i]* this->blackman[i];
     }
     fftwf_execute(this->ft_plan);
-    for (int i = 0; i < BUF_LENGTH; ++i) {
-        this->buffers[0][i] = std::abs(this->ft_out[i]);
+    for (int i = 0; i < (BUF_LENGTH/2)+1; ++i) {
+        this->buffers[0][i] = std::abs(this->ft_out[i])/213.0f;
     }
 }
 
-void Analyzer::updateBuffer(const float *jack_buffer_update) {
-    this->jack_buffer = jack_buffer_update;
-}
 /*
  *  Peak to Harmonics Power Ratio:
  *  Test if the frequency peaks at index[i] has significant harmonics.
@@ -68,14 +65,14 @@ bool Analyzer::phpr(const float *buf_in) {
     for (int i = 0; i < N_PEAKS; ++i) {
         if (this->found_howls[i] != 0){
             ret = true;
-            if (i*2 < BUF_LENGTH) {
-                if (2 * log10f_fast(buf_in[this->found_howls[i]] / buf_in[this->found_howls[i] * 2])\
+            if (i*2 < FFTOUT_BUF_LENGTH) {
+                if (20 * log10f_fast(buf_in[this->found_howls[i]] / buf_in[this->found_howls[i] * 2])\
                 < phpr_threshold) {
                     this->found_howls[i] = 0;
                 }
             }
-            if (i*3 < BUF_LENGTH){
-                if (2 * log10f_fast(buf_in[this->found_howls[i]] / buf_in[this->found_howls[i] * 3])\
+            if (i*3 < FFTOUT_BUF_LENGTH){
+                if (20 * log10f_fast(buf_in[this->found_howls[i]] / buf_in[this->found_howls[i] * 3])\
                 < phpr_threshold) {
                     this->found_howls[i] = 0;
                 }
@@ -96,26 +93,14 @@ bool Analyzer::pnpr(const float *buf_in) {
     for (int i = 0; i < N_PEAKS; ++i) {
         if(this->found_howls[i] != 0){
             ret = true;
-            if (i+1 < BUF_LENGTH){
-                if (2*log10f_fast(buf_in[this->found_howls[i]] / buf_in[this->found_howls[i]+1])\
-                < pnpr_threshold) {
-                    this->found_howls[i] = 0;
-                }
-            }
-            if (i+2 < BUF_LENGTH) {
-                if (2*log10f_fast(buf_in[this->found_howls[i]] / buf_in[this->found_howls[i] + 2])\
+            if (i+1 < FFTOUT_BUF_LENGTH){
+                if (20 *log10f_fast(buf_in[this->found_howls[i]] / buf_in[this->found_howls[i]+1])\
                 < pnpr_threshold) {
                     this->found_howls[i] = 0;
                 }
             }
             if (i-1 > 0){
-                if (2*log10f_fast(buf_in[this->found_howls[i]] / buf_in[this->found_howls[i] - 1])\
-                < pnpr_threshold) {
-                    this->found_howls[i] = 0;
-                }
-            }
-            if (i-2 > 0) {
-                if (2*log10f_fast(buf_in[this->found_howls[i]] / buf_in[this->found_howls[i] - 2])\
+                if (20 *log10f_fast(buf_in[this->found_howls[i]] / buf_in[this->found_howls[i] - 1])\
                 < pnpr_threshold) {
                     this->found_howls[i] = 0;
                 }
@@ -138,28 +123,29 @@ bool Analyzer::imsd(const float *buf_in) {
  * find 10 highest peaks, run phpr, pnpr, imsd if enabled.
  * write howling frequencies indexes in found_howls, if detected.
  */
-void Analyzer::run(const float *jackBuffer) {
-    updateBuffer(jackBuffer);
+void Analyzer::analyzeBuffer(const float *jackBuffer) {
+    // swap buffers order
+    float *t = this->buffers[2];
+    this->buffers[2]= this->buffers[1];
+    this->buffers[1]= this->buffers[0];
+    this->buffers[0]=t;
+
+    setInputBuffer(jackBuffer);
     fftWrapper(this->jack_buffer);
     float *buf_in = this->buffers[0];
     for (int & found_howl : this->found_howls) {
         found_howl = 0;
     }
-    for (int i = 0; i < BUF_LENGTH; ++i) {
+    for (int i = 0; i < FFTOUT_BUF_LENGTH; ++i) {
         if (buf_in[i] > buf_in[this->found_howls[0]]){
             this->found_howls[0] = i;
             minHead(buf_in,this->found_howls);
         }
     }
     // recognize larsen effetcs
-    if(this->run_pnpr) { if (!pnpr(buf_in)) return; }
     if(this->run_phpr) { if (!phpr(buf_in)) return; }
+    if(this->run_pnpr) { if (!pnpr(buf_in)) return; }
     if(this->run_imsd) imsd(buf_in);
-    // swap buffers order
-    float *t = this->buffers[2];
-    this->buffers[2]= this->buffers[1];
-    this->buffers[1]= this->buffers[0];
-    this->buffers[0]=t;
 }
 
 void inline Analyzer::minHead(const float *buf_in, int *peaks) {
@@ -183,23 +169,21 @@ Analyzer::~Analyzer() {
     fftwf_destroy_plan(this->ft_plan);
     free(ft_in);
     free(ft_out);
-    free(found_howls);
     for (auto &buf: this->buffers) {
         free(buf);
     }
-    free(buffers);
 }
 
 float Analyzer::getPhprThreshold() const {
-    return phpr_threshold;
+    return this->phpr_threshold;
 }
 
 float Analyzer::getPnprThreshold() const {
-    return pnpr_threshold;
+    return this->pnpr_threshold;
 }
 
 float Analyzer::getImsdThreshold() const {
-    return imsd_threshold;
+    return this->imsd_threshold;
 }
 
 bool Analyzer::isRunPhpr() const {
@@ -215,8 +199,13 @@ bool Analyzer::isRunImsd() const {
 }
 
 void Analyzer::setInputBuffer(const float *jackBuffer) {
-    jack_buffer = jackBuffer;
+    this->jack_buffer = jackBuffer;
 }
 
+std::complex<float> *Analyzer::getFtOut() const {
+    return ft_out;
+}
 
-
+float *Analyzer::getOutBuffer() const {
+    return buffers[0];
+}
