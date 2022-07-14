@@ -65,8 +65,8 @@ int main (int argc, char *argv[])
     analyzer_settings[1]= true; // enable pnpr
     analyzer_settings[2]= false; // enable imsd
 
-    float gb = -10;
-    float q_factor = 30;
+    float gb = 0.1;
+    float q_factor = 35;
     float f_min  = 0;
 
     /* open a client connection to the JACK server */

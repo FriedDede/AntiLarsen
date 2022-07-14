@@ -21,13 +21,13 @@ int main(){
     float out_buf_test[BUF_LENGTH];
     int ntests = 3;
     bool settings[3];
-    int test_peaks[10];
+    int test_peaks[N_PEAKS];
     settings[0] = true;
-    settings[1] = true;
+    settings[1] = false;
     settings[2] = false;
     bool larsen;
     const static float fsampling = 48000.0f;
-    filters = new preFiltersBank(fsampling,10,30,0);
+    filters = new preFiltersBank(fsampling,0.1,35,0);
     dsp = new DSP;
     analyzer = new Analyzer(settings);
 
