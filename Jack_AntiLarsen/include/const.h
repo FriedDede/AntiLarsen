@@ -9,7 +9,7 @@
 #define N_PRE_FILTERS 512
 #define MAX_ACTIVE_FILTERS 10
 #define PI 3.1415926
-#define N_PEAKS 5
+#define N_PEAKS 10
 #define FSTEP 46.875 //Hz
 #define INT_TIME 21.333 //ms
 /*
