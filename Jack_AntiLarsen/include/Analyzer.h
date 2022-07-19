@@ -13,7 +13,6 @@ public:
     explicit Analyzer(const bool *settings);
     void analyzeBuffer(const float *jackBuffer);
     void setInputBuffer(const float *jackBuffer);
-    void setEnableAlgo(const bool *);
     float getPhprThreshold() const;
     float getPnprThreshold() const;
     float getImsdThreshold() const;
@@ -24,21 +23,21 @@ public:
     virtual ~Analyzer();
 
     std::complex<float> *getFtOut() const;
-    float *getOutBuffer() const;
+    float* getOutBuffer() const;
 
 private:
     bool phpr(const float *);
     bool pnpr(const float *);
-    bool imsd(const float *);
+    bool imsd();
     void fftWrapper(const float *);
     static void inline minHead(const float*, int *);
     void blackman_win(int);
 
     fftwf_plan ft_plan;
-    float *ft_in;
-    std::complex<float> *ft_out;
-    const float *jack_buffer;
-    float *buffers[3];
+    float* ft_in;
+    std::complex<float>* ft_out;
+    const float* jack_buffer;
+    float* buffers[3];
     float blackman[BUF_LENGTH];
 /*
  * Thresholds for howling frequencies detection (in dB)

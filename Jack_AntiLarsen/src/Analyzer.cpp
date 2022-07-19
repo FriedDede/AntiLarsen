@@ -22,7 +22,10 @@ Analyzer::Analyzer(const bool settings[3]) {
     for (auto &i: this->found_howls) i = 0;
 
     // select which algorithm will be run
-    setEnableAlgo(settings);
+    this->run_phpr = settings[0];
+    this->run_pnpr = settings[1];
+    this->run_imsd = settings[2];
+
     blackman_win(BUF_LENGTH);
     // fftw3 plan creation
     this->ft_plan = fftwf_plan_dft_r2c_1d(BUF_LENGTH, ft_in,\
@@ -58,7 +61,7 @@ void Analyzer::fftWrapper(const float *jack_buf) {
  *  Test if the frequency peaks at index[i] has significant harmonics.
  *  Howling and feedbacks usually doesn't generate harmonics waves.
  *  phpr : log10(|Y(wi)|^2/|Y(nwi)|^2)
- *  todo: minimize runtime, even if analysis is not online runtime is critical.
+ *  pnpr advised threshold is 30 dB
  */
 bool Analyzer::phpr(const float *buf_in) {
     bool ret = false;
@@ -81,12 +84,13 @@ bool Analyzer::phpr(const float *buf_in) {
     }
     return ret;
 }
+
 /*
  *  Peak to Neighbour Power Ratio
  *  Test if the frequency peaks at index[i] has leakage in neighbours frequencies.
  *  Howling and feedbacks are usually very narrow.
  *  phpr : log10(|Y(wi)|^2/|Y(wi + n(2pi/M)|^2)
- *  todo: minimize runtime, even if analysis is not online runtime is critical.
+ *  phpr advised threshold is 10 dB
  */
 bool Analyzer::pnpr(const float *buf_in) {
     bool ret = false;
@@ -109,15 +113,24 @@ bool Analyzer::pnpr(const float *buf_in) {
     }
     return ret;
 }
+
 /*
- * TODO: Interframe Magnitude Slope Deviation
+ * Interframe Magnitude Slope Deviation
+ * validate if the amplitude at given frequency is building up exponentially
+ * IMSD : 10*|log10(Y(wi,T)/Y(wi,T-1)|- 10*|log10(Y(wi,T-1)/Y(wi,T-2)| ...
+ * IMSD advised threshold is 1dB
  */
-bool Analyzer::imsd(const float *buf_in) {
+bool Analyzer::imsd() {
     bool ret = true;
-
-
+    for (auto &p: this->found_howls) {
+        if ((imsd_threshold/10) >
+                (log10f_fast(buffers[0][p]) - log10f_fast(buffers[1][p]))-
+                (log10f_fast(buffers[1][p]) - log10f_fast(buffers[2][p]))
+                ) p = 0;
+    }
     return ret;
 }
+
 /*
  * Howls finder:
  * find 10 highest peaks, run phpr, pnpr, imsd if enabled.
@@ -145,9 +158,15 @@ void Analyzer::analyzeBuffer(const float *jackBuffer) {
     // recognize larsen effetcs
     if(this->run_phpr) { if (!phpr(buf_in)) return; }
     if(this->run_pnpr) { if (!pnpr(buf_in)) return; }
-    if(this->run_imsd) imsd(buf_in);
+    if(this->run_imsd) imsd();
 }
 
+/*
+ * minHead:
+ * param @buf_in: RTA buffer
+ * param @peaks: peaks found in buf_in
+ * Find the peak that has the lowest magnitude, and place it at peaks[0]
+ */
 void inline Analyzer::minHead(const float *buf_in, int *peaks) {
     int min_peak = 0;
     int tmp = 0;
@@ -158,13 +177,42 @@ void inline Analyzer::minHead(const float *buf_in, int *peaks) {
     peaks[min_peak] = peaks[0];
     peaks[0] = tmp;
 }
-
-void Analyzer::setEnableAlgo(const bool *settings) {
-    this->run_phpr = settings[0];
-    this->run_pnpr = settings[1];
-    this->run_imsd = settings[2];
+/*
+ *  Return ft_out buffer pointer
+ */
+std::complex<float> *Analyzer::getFtOut() const {
+    return ft_out;
 }
-
+/*
+ *  Return buffer[0]
+ */
+float* Analyzer::getOutBuffer() const {
+    return buffers[0];
+}
+float Analyzer::getPhprThreshold() const {
+    return this->phpr_threshold;
+}
+float Analyzer::getPnprThreshold() const {
+    return this->pnpr_threshold;
+}
+float Analyzer::getImsdThreshold() const {
+    return this->imsd_threshold;
+}
+bool Analyzer::isRunPhpr() const {
+    return run_phpr;
+}
+bool Analyzer::isRunPnpr() const {
+    return run_pnpr;
+}
+bool Analyzer::isRunImsd() const {
+    return run_imsd;
+}
+void Analyzer::setInputBuffer(const float *jackBuffer) {
+    this->jack_buffer = jackBuffer;
+}
+/*
+ * Destructor
+ */
 Analyzer::~Analyzer() {
     fftwf_destroy_plan(this->ft_plan);
     free(ft_in);
@@ -172,40 +220,4 @@ Analyzer::~Analyzer() {
     for (auto &buf: this->buffers) {
         free(buf);
     }
-}
-
-float Analyzer::getPhprThreshold() const {
-    return this->phpr_threshold;
-}
-
-float Analyzer::getPnprThreshold() const {
-    return this->pnpr_threshold;
-}
-
-float Analyzer::getImsdThreshold() const {
-    return this->imsd_threshold;
-}
-
-bool Analyzer::isRunPhpr() const {
-    return run_phpr;
-}
-
-bool Analyzer::isRunPnpr() const {
-    return run_pnpr;
-}
-
-bool Analyzer::isRunImsd() const {
-    return run_imsd;
-}
-
-void Analyzer::setInputBuffer(const float *jackBuffer) {
-    this->jack_buffer = jackBuffer;
-}
-
-std::complex<float> *Analyzer::getFtOut() const {
-    return ft_out;
-}
-
-float *Analyzer::getOutBuffer() const {
-    return buffers[0];
 }

@@ -34,7 +34,7 @@ void DSP::add_filter_to_bank(int index, t_filter filters[]) {
 }
 
 bool DSP::applyFilters() {
-    // delayed x, y samples
+    // delayed feedforward (x_n), feedback(y_n) samples
     static float x_2 = 0.0f;
     static float x_1 = 0.0f;
     static float y_2 = 0.0f;

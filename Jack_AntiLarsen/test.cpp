@@ -23,8 +23,8 @@ int main(){
     bool settings[3];
     int test_peaks[N_PEAKS];
     settings[0] = true;
-    settings[1] = false;
-    settings[2] = false;
+    settings[1] = true;
+    settings[2] = true;
     bool larsen;
     const static float fsampling = 48000.0f;
     filters = new preFiltersBank(fsampling,0.1,35,0);
@@ -33,13 +33,13 @@ int main(){
 
     float test[ntests][BUF_LENGTH] ;
     for (int i = 0; i < BUF_LENGTH; ++i) {
-        test[0][i] = 0.9f * cosf((float)i*2.0f*PI*42.0f*FSTEP/fsampling);
+        test[0][i] = 0.1f * cosf((float)i*2.0f*PI*42.0f*FSTEP/fsampling);
     }
     for (int i = 0; i < BUF_LENGTH; ++i) {
-        test[1][i] = 0.9f * cosf((float)i*2.0f*PI*2.0f*FSTEP/fsampling);
+        test[1][i] = 0.2f * cosf((float)i*2.0f*PI*42.0f*FSTEP/fsampling);
     }
     for (int i = 0; i < BUF_LENGTH; ++i) {
-        test[2][i] = 0.9f * cosf((float)i*2.0f*PI*8000.f/fsampling);
+        test[2][i] = 0.9f * cosf((float)i*2.0f*PI*42.f*FSTEP/fsampling);
     }
     if (analyzer->isRunPhpr()) std::cout << "phpr ";
     if (analyzer->isRunPnpr()) std::cout << "pnpr ";
@@ -76,12 +76,6 @@ int main(){
         }
         std::cout << std::endl;
     }
-
-
-
-
-
-
 
     // Timing test
     for (int i = 0; i < ntests; ++i) {

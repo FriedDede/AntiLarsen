@@ -63,7 +63,7 @@ int main (int argc, char *argv[])
     /* Default settings */
     analyzer_settings[0]= true; // enable phpr
     analyzer_settings[1]= true; // enable pnpr
-    analyzer_settings[2]= false; // enable imsd
+    analyzer_settings[2]= true; // enable imsd
 
     float gb = 0.1;
     float q_factor = 35;
