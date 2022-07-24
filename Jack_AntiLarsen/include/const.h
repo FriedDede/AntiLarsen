@@ -8,9 +8,9 @@
 #define BUF_LENGTH 1024
 #define N_PRE_FILTERS 512
 #define MAX_ACTIVE_FILTERS 10
-#define PI 3.1415926
+#define PI 3.1415926f
 #define N_PEAKS 10
-#define FSTEP 46.875 //Hz
+#define FSTEP 46.875f //Hz
 #define INT_TIME 21.333 //ms
 /*
  * r2c fftw output format:

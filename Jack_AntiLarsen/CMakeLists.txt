@@ -5,26 +5,22 @@ set(CMAKE_CXX_STANDARD 20)
 
 add_executable(Jack_AntiLarsen
         main.cpp
-        src/iir.cpp
         src/fastmath.cpp
         src/Analyzer.cpp
         src/DSP.cpp
         include/Analyzer.h
         include/const.h
-        include/iir.h
         include/fastmath.h
         include/localtools.h
         include/DSP.h
         )
 add_executable(TEST
         test.cpp
-        src/iir.cpp
         src/fastmath.cpp
         src/Analyzer.cpp
         src/DSP.cpp
         include/Analyzer.h
         include/const.h
-        include/iir.h
         include/fastmath.h
         include/localtools.h
         include/DSP.h

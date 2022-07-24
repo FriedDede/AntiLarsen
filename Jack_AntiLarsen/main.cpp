@@ -2,7 +2,6 @@
 #include <iostream>
 #include <jack/jack.h>
 #include <jack/types.h>
-#include "include/iir.h"
 #include "include/Analyzer.h"
 #include "include/DSP.h"
 #include <cstdlib>
@@ -13,10 +12,12 @@ jack_port_t *input_port;
 jack_port_t *output_port;
 jack_client_t *client;
 
-preFiltersBank *filters;
 DSP *dsp;
 Analyzer *analyzer;
 
+/**
+ * JACK process_callback is run once per JACK server cycle
+ */
 int process (jack_nframes_t nframes, void *arg){
     float *in, *out;
     bool larsen = false;
@@ -27,7 +28,7 @@ int process (jack_nframes_t nframes, void *arg){
     dsp->setInOutBuffers(in,out, (int) nframes);
     for (auto f_idx: analyzer->found_howls) {
         if (f_idx != 0){
-            dsp->add_filter_to_bank(f_idx, filters->filters);
+            dsp->add_filter_to_bank(f_idx);
             larsen = true;
             // debug only
             std::cout << f_idx*FSTEP << std::endl;
@@ -47,7 +48,6 @@ int process (jack_nframes_t nframes, void *arg){
 void jack_shutdown (void *arg){
     delete dsp;
     delete analyzer;
-    delete filters;
     exit (1);
 }
 
@@ -63,9 +63,9 @@ int main (int argc, char *argv[])
     /* Default settings */
     analyzer_settings[0]= true; // enable phpr
     analyzer_settings[1]= true; // enable pnpr
-    analyzer_settings[2]= true; // enable imsd
+    analyzer_settings[2]= false; // enable imsd
 
-    float gb = 0.1;
+    float gb = 0.01f;
     float q_factor = 35;
     float f_min  = 0;
 
@@ -88,39 +88,40 @@ int main (int argc, char *argv[])
     }
 
     /* Plugin init */
-    filters = new preFiltersBank((float)jack_get_sample_rate(client),gb,q_factor,f_min);
-    if (filters == nullptr) {
-        std::cout << "Unable to initialize precomputed filters bank, quitting." << std::endl;
-        exit(EXIT_FAILURE);
-    }
-    else{
-        std::cout << "Filters settings:" << std::endl;
-        std::cout << "  Sample rate: " << (float )jack_get_sample_rate(client) << std::endl;
-        std::cout << "  Gain at cut-off: " << gb << " dB" << std::endl;
-        std::cout << "  Q factor: " << q_factor <<std::endl;
-        std::cout << "  Min Frequency: " << f_min << " Hz" << std::endl;
-        std::cout << "Filters computed" << std::endl << std::endl;
-    }
+    std::cout << "---------------- " << client_name << " -----------------" << std::endl;
+
     dsp = new DSP;
     if (dsp == nullptr){
         std::cout << "Unable to initialize dsp, quitting."<< std::endl;
         exit(EXIT_FAILURE);
     }
-    else std::cout << "DSP started" << std::endl << std::endl;
+    else{
+        std::cout << "--------- Filters settings:" << std::endl;
+        std::cout << "  Engine sample rate: " << (float )jack_get_sample_rate(client) << " Hz" << std::endl;
+        std::cout << "  Gain at cut-off:    " << gb << " dB" << std::endl;
+        std::cout << "  Q factor:           " << q_factor <<std::endl;
+        std::cout << "  Min Frequency:      " << f_min << " Hz" << std::endl;
+    }
     analyzer = new Analyzer(analyzer_settings);
     if (analyzer == nullptr){
         std::cout << "Unable to initialize analyzer, quitting."<< std::endl;
         exit (EXIT_FAILURE);
     }
     else {
-        std::cout << "Analyzer settings:"<< std::endl;
-        std::cout << "   Power to Harmonics power ratio: "<< analyzer->isRunPhpr() <<
-                        "   threshold: " << analyzer->getPhprThreshold() << std::endl;
-        std::cout << "   Power to Neighbours power ratio: "<< analyzer->isRunPnpr() <<
-                        "   threshold: " << analyzer->getPnprThreshold() << std::endl;
-        std::cout << "   Inter-frame Magnitude Slope Deviation: "<< analyzer->isRunImsd() <<
-                        "   threshold: " << analyzer->getImsdThreshold() << std::endl;
-        std::cout << "Analyzer started"<< std::endl;
+        std::cout << "-------- Analyzer settings:"<< std::endl;
+        if (analyzer->isRunPhpr()) {
+            std::cout << "   Power to Harmonics power ratio: " << std::endl <<
+                      "   threshold: " << analyzer->getPhprThreshold() << std::endl;
+        }
+        if (analyzer->isRunPnpr()){
+            std::cout << "   Power to Neighbours power ratio: "<< std::endl <<
+                      "   threshold: " << analyzer->getPnprThreshold() << std::endl;
+        }
+        if (analyzer->isRunImsd()){
+            std::cout << "   Inter-frame Magnitude Slope Deviation: "<< std::endl <<
+                      "   threshold: " << analyzer->getImsdThreshold() << std::endl;
+        }
+        std::cout <<"-------- Found Larsen (Hz):" << std::endl;
     }
 
     /* tell the JACK server to call `process()' wheneverS
@@ -132,10 +133,6 @@ int main (int argc, char *argv[])
      * just decides to stop calling us.
      * */
     jack_on_shutdown (client, jack_shutdown, 0);
-    /*
-     * display the current sample rate.
-     * */
-    printf ("engine sample rate: %" PRIu32 "\n", jack_get_sample_rate (client));
 
     /* create two ports */
     input_port = jack_port_register (client, "input",

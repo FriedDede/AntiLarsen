@@ -4,7 +4,6 @@
 #include <iostream>
 #include <jack/jack.h>
 #include <jack/types.h>
-#include "include/iir.h"
 #include "include/Analyzer.h"
 #include "include/DSP.h"
 #include "include/const.h"
@@ -13,7 +12,6 @@
 #include <cmath>
 #include <chrono>
 
-preFiltersBank *filters;
 DSP *dsp;
 Analyzer *analyzer;
 
@@ -23,11 +21,10 @@ int main(){
     bool settings[3];
     int test_peaks[N_PEAKS];
     settings[0] = true;
-    settings[1] = true;
-    settings[2] = true;
+    settings[1] = false;
+    settings[2] = false;
     bool larsen;
     const static float fsampling = 48000.0f;
-    filters = new preFiltersBank(fsampling,0.1,35,0);
     dsp = new DSP;
     analyzer = new Analyzer(settings);
 
@@ -63,7 +60,7 @@ int main(){
         dsp->setInOutBuffers(test[i],out_buf_test,BUF_LENGTH);
         for (auto f_idx: analyzer->found_howls) {
             if (f_idx != 0){
-                dsp->add_filter_to_bank(f_idx, filters->filters);
+                dsp->add_filter_to_bank(f_idx);
                 larsen = true;
             }
         }
@@ -84,7 +81,7 @@ int main(){
         dsp->setInOutBuffers(test[i],out_buf_test,BUF_LENGTH);
         for (auto f_idx: analyzer->found_howls) {
             if (f_idx != 0){
-                dsp->add_filter_to_bank(f_idx*2, filters->filters);
+                dsp->add_filter_to_bank(f_idx*2);
                 larsen = true;
             }
         }
@@ -99,6 +96,5 @@ int main(){
 
     delete analyzer;
     delete dsp;
-    delete filters;
     return 0;
 }

@@ -43,7 +43,7 @@ private:
  * Thresholds for howling frequencies detection (in dB)
  */
     static constexpr float phpr_threshold = 10.0f;
-    static constexpr float pnpr_threshold = 25.5f;
+    static constexpr float pnpr_threshold = 20.0f;
     static constexpr float imsd_threshold = 1.0f;
 
     bool run_phpr = true;
