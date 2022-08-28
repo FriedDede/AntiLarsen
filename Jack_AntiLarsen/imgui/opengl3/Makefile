@@ -11,31 +11,27 @@
 #   pacman -S mingw-w64-i686-SDL
 #
 
-CXX = g++
-CC = gcc
+#CXX = g++
 #CXX = clang++
 
-BUILD_TARGET = rta
-BUILD_DIR = build-rta
-EXE = $(addprefix $(BUILD_DIR)/, $(basename $(notdir $(BUILD_TARGET))))
-SOURCES = rta.cpp
-SOURCES += imgui/opengl3/imgui_impl_sdl.cpp imgui/opengl3/imgui_impl_opengl3.cpp
-SOURCES += imgui/imgui.cpp imgui/imgui_demo.cpp imgui/imgui_draw.cpp imgui/imgui_widgets.cpp
-SOURCES += src/Analyzer.cpp src/fastmath.cpp
-OBJS = $(addprefix $(BUILD_DIR)/, $(addsuffix .o, $(basename $(notdir $(SOURCES)))))
+EXE = example_sdl_opengl3
+SOURCES = main.cpp
+SOURCES += ../imgui_impl_sdl.cpp ../imgui_impl_opengl3.cpp
+SOURCES += ../../imgui.cpp ../../imgui_demo.cpp ../../imgui_draw.cpp ../../imgui_widgets.cpp
+OBJS = $(addsuffix .o, $(basename $(notdir $(SOURCES))))
 UNAME_S := $(shell uname -s)
 
-CXXFLAGS = -Iimgui/ -Iimgui/opengl3/ -Isrc/ -Iinclude/*
-CXXFLAGS += -g -Wall -Wformat 
-LIBS = -lpthread -lfftw3f -L/usr/lib64/pipewire-0.3/jack -ljack
+CXXFLAGS = -I../ -I../../
+CXXFLAGS += -g -Wall -Wformat
+LIBS =
 
 ##---------------------------------------------------------------------
 ## OPENGL LOADER
 ##---------------------------------------------------------------------
 
 ## Using OpenGL loader: gl3w [default]
-SOURCES += imgui/libs/gl3w/GL/gl3w.c
-CXXFLAGS += -Iimgui/libs/gl3w -DIMGUI_IMPL_OPENGL_LOADER_GL3W
+SOURCES += ../libs/gl3w/GL/gl3w.c
+CXXFLAGS += -I../libs/gl3w -DIMGUI_IMPL_OPENGL_LOADER_GL3W
 
 ## Using OpenGL loader: glew
 ## (This assumes a system-wide installation)
@@ -53,10 +49,10 @@ CXXFLAGS += -Iimgui/libs/gl3w -DIMGUI_IMPL_OPENGL_LOADER_GL3W
 # CXXFLAGS += -lglbinding -DIMGUI_IMPL_OPENGL_LOADER_GLBINDING2
 
 ##---------------------------------------------------------------------
-## BUILD FLAGS FOR LINUX
+## BUILD FLAGS PER PLATFORM
 ##---------------------------------------------------------------------
 
-ifeq ($(UNAME_S), Linux)
+ifeq ($(UNAME_S), Linux) #LINUX
 	ECHO_MESSAGE = "Linux"
 	LIBS += -lGL -ldl `sdl2-config --libs`
 
@@ -64,21 +60,41 @@ ifeq ($(UNAME_S), Linux)
 	CFLAGS = $(CXXFLAGS)
 endif
 
+ifeq ($(UNAME_S), Darwin) #APPLE
+	ECHO_MESSAGE = "Mac OS X"
+	LIBS += -framework OpenGL -framework Cocoa -framework IOKit -framework CoreVideo `sdl2-config --libs`
+	LIBS += -L/usr/local/lib -L/opt/local/lib
+
+	CXXFLAGS += `sdl2-config --cflags`
+	CXXFLAGS += -I/usr/local/include -I/opt/local/include
+	CFLAGS = $(CXXFLAGS)
+endif
+
+ifeq ($(findstring MINGW,$(UNAME_S)),MINGW)
+   ECHO_MESSAGE = "MinGW"
+   LIBS += -lgdi32 -lopengl32 -limm32 `pkg-config --static --libs sdl2`
+
+   CXXFLAGS += `pkg-config --cflags sdl2`
+   CFLAGS = $(CXXFLAGS)
+endif
+
 ##---------------------------------------------------------------------
 ## BUILD RULES
 ##---------------------------------------------------------------------
 
-$(BUILD_DIR)/%.o:src/%.cpp
+%.o:%.cpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
-$(BUILD_DIR)/%.o:%.cpp
+
+%.o:../%.cpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
-$(BUILD_DIR)/%.o:imgui/%.cpp
+
+%.o:../../%.cpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
-$(BUILD_DIR)/%.o:imgui/opengl3/%.cpp
-	$(CXX) $(CXXFLAGS) -c -o $@ $<
-$(BUILD_DIR)/%.o:imgui/libs/gl3w/GL/%.c
+
+%.o:../libs/gl3w/GL/%.c
 	$(CC) $(CFLAGS) -c -o $@ $<
-$(BUILD_DIR)/%.o:imgui/libs/glad/src/%.c
+
+%.o:../libs/glad/src/%.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
 all: $(EXE)
@@ -89,7 +105,3 @@ $(EXE): $(OBJS)
 
 clean:
 	rm -f $(EXE) $(OBJS)
-	rm -r $(BUILD_DIR)
-
-setup:
-	mkdir $(BUILD_DIR)

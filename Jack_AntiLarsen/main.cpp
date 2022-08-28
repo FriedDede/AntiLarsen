@@ -63,7 +63,7 @@ int main (int argc, char *argv[])
     /* Default settings */
     analyzer_settings[0]= true; // enable phpr
     analyzer_settings[1]= true; // enable pnpr
-    analyzer_settings[2]= false; // enable imsd
+    analyzer_settings[2]= true; // enable imsd
 
     float gb = 0.01f;
     float q_factor = 35;
@@ -160,6 +160,7 @@ int main (int argc, char *argv[])
      * "input" to the backend, and capture ports are "output" from
      * it.
      */
+    /*
     ports = jack_get_ports (client, nullptr,nullptr,
                             JackPortIsPhysical|JackPortIsOutput);
     if (ports == nullptr) {
@@ -180,7 +181,7 @@ int main (int argc, char *argv[])
     if (jack_connect (client, jack_port_name (output_port), ports[0])) {
         fprintf (stderr, "cannot connect output ports\n");
     }
-
+    */
     free (ports);
 
     /* keep running until stopped by the user */

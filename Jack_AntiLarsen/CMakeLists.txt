@@ -25,12 +25,27 @@ add_executable(TEST
         include/localtools.h
         include/DSP.h
         )
+add_executable(RTA
+        rta.cpp
+        src/fastmath.cpp
+        src/Analyzer.cpp
+        src/DSP.cpp
+        include/Analyzer.h
+        include/const.h
+        include/fastmath.h
+        include/localtools.h
+        include/DSP.h
+        )
 
 target_link_libraries(Jack_AntiLarsen
         /usr/lib64/pipewire-0.3/jack/libjack.so.0
         fftw3f
         )
 target_link_libraries(TEST
+        /usr/lib64/pipewire-0.3/jack/libjack.so.0
+        fftw3f
+        )
+target_link_libraries(RTA
         /usr/lib64/pipewire-0.3/jack/libjack.so.0
         fftw3f
         )
