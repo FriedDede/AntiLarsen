@@ -35,6 +35,8 @@ add_executable(RTA
         include/fastmath.h
         include/localtools.h
         include/DSP.h
+        imgui/imgui.h
+        imgui/
         )
 
 target_link_libraries(Jack_AntiLarsen
@@ -45,7 +47,10 @@ target_link_libraries(TEST
         /usr/lib64/pipewire-0.3/jack/libjack.so.0
         fftw3f
         )
+find_package(SDL2 REQUIRED)
+include_directories(${SDL2_INCLUDE_DIRS})
 target_link_libraries(RTA
         /usr/lib64/pipewire-0.3/jack/libjack.so.0
         fftw3f
+        ${SDL2_LIBRARIES}
         )

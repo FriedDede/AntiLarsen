@@ -16,15 +16,16 @@
 #include <cstdlib>
 #include <cstring>
 #include <unistd.h>
-#include <stdio.h>
-#include <string.h>
+#include <cstdio>
+#include <cstring>
 #include <vector>
 #include <thread>
 #include <SDL.h>
 
+#define IMGUI_IMPL_OPENGL_LOADER_GL3W 1
 #define refresh_interval 45
 #if defined(IMGUI_IMPL_OPENGL_LOADER_GL3W)
-#include <GL/gl3w.h> // Initialize with gl3wInit()
+#include "imgui/libs/gl3w/GL/gl3w.h" // Initialize with gl3wInit()
 #endif
 
 jack_port_t *input_port;
@@ -45,13 +46,17 @@ void jack_shutdown (void *arg){
     exit (1);
 }
 
-void GUI(){
-        float data[FFTOUT_BUF_LENGTH];
+void GUI(jack_client_t *client) {
+    float data[FFTOUT_BUF_LENGTH];
+    const char **ports;
+    int in_ports;
+    int out_ports;
+    std::vector<u_int8_t> input_new_state;
+    std::vector<u_int8_t> input_state;
         // Setup SDL
         // (Some versions of SDL before <2.0.10 appears to have performance/stalling issues on a minority of Windows systems,
         // depending on whether SDL_INIT_GAMECONTROLLER is enabled or disabled.. updating to latest version of SDL is recommended!)
-        if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) != 0)
-        {
+        if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) != 0) {
             printf("Error: %s\n", SDL_GetError());
             exit(-1);
         }
@@ -64,18 +69,20 @@ void GUI(){
         SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
         SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
         SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
-        SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
-        SDL_Window *window = SDL_CreateWindow("RTA", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720, window_flags);
+        SDL_WindowFlags window_flags = (SDL_WindowFlags) (SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE |
+                                                          SDL_WINDOW_ALLOW_HIGHDPI);
+        SDL_Window *window = SDL_CreateWindow("RTA", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720,
+                                              window_flags);
         SDL_GLContext gl_context = SDL_GL_CreateContext(window);
         SDL_GL_MakeCurrent(window, gl_context);
         SDL_GL_SetSwapInterval(1); // Enable vsync
 
-// Initialize OpenGL loader
-#if defined(IMGUI_IMPL_OPENGL_LOADER_GL3W)
+        // Initialize OpenGL loader
+        #if defined(IMGUI_IMPL_OPENGL_LOADER_GL3W)
         bool err = gl3wInit() != 0;
-#else
-        bool err = false; // If you use IMGUI_IMPL_OPENGL_LOADER_CUSTOM, your loader is likely to requires some form of initialization.
-#endif
+        #else
+        bool err = false;
+        #endif
         if (err) {
             fprintf(stderr, "Failed to initialize OpenGL loader!\n");
             exit(1);
@@ -85,7 +92,7 @@ void GUI(){
         IMGUI_CHECKVERSION();
         ImGui::CreateContext();
         ImGuiIO &io = ImGui::GetIO();
-        (void)io;
+        (void) io;
         ImGui::StyleColorsClassic();
         // Setup Platform/Renderer bindings
         ImGui_ImplSDL2_InitForOpenGL(window, gl_context);
@@ -93,31 +100,80 @@ void GUI(){
         ImVec4 clear_color = ImVec4(0.1f, 0.1f, 0.1f, 0.1f);
 
     bool done = false;
-    while(!done){
+    bool show_rta = false;
+    bool show_in = false;
+    bool show_out = false;
+    do{
         SDL_Event event;
         while (SDL_PollEvent(&event))
         {
             ImGui_ImplSDL2_ProcessEvent(&event);
             if (event.type == SDL_QUIT)
                 done = true;
-            if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE && event.window.windowID == SDL_GetWindowID(window))
+            if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_CLOSE\
+            && event.window.windowID == SDL_GetWindowID(window))
                 done = true;
         }
-        //RTA Window
         {
-            for (int i = 0; i < FFTOUT_BUF_LENGTH; ++i) {
-                data[i] = 10.0f*log10f_fast(analyzer->getOutBuffer()[i])+60.0f;
-            }
             // Start the Dear ImGui frame
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplSDL2_NewFrame(window);
             ImGui::NewFrame();
-            ImGui::Begin("RTA");
+            ImGui::Begin("Main Menù");
+            ImGui::Checkbox("RTA", &show_rta);
+            ImGui::Checkbox("IN list", &show_in);
+            ImGui::Checkbox("OUT list", &show_out);
+            ImGui::End();
+        }
+        //RTA Window
+        if(show_rta){
+            for (int i = 0; i < FFTOUT_BUF_LENGTH; ++i) {
+                data[i] = 10.0f*log10f_fast(analyzer->getOutBuffer()[i])+60.0f;
+            }
+            ImGui::Begin("RTA", &show_rta);
             ImGui::PushItemWidth(-1);
             ImGui::PlotHistogram("RTA",data,FFTOUT_BUF_LENGTH, \
             0, NULL, 0.0f, 60.0f, ImGui::GetWindowSize());
             ImGui::End();
         }
+        if (show_in){
+            int n_ports = 0;
+            ImGui::Begin("Capture", &show_in);
+            ports = jack_get_ports (client, nullptr,nullptr,
+                                    JackPortIsPhysical|JackPortIsOutput);
+            const char ** cursor = ports;
+            for (n_ports = 0; cursor[n_ports] != nullptr; ++n_ports);
+            if (in_ports != n_ports){
+                input_new_state.resize(n_ports);
+                input_state.resize(n_ports);
+                in_ports = n_ports;
+            }
+            for (int i = 0; i < n_ports ; ++i) {
+                ImGui::Checkbox(cursor[i], reinterpret_cast<bool *>(& input_new_state[i]));
+                if (input_new_state[i] && !input_state[i]){
+                    jack_connect(client,ports[i], jack_port_name(input_port));
+                    input_state[i] = input_new_state[i];
+                }
+                if (!input_new_state[i] && input_state[i]){
+                    jack_disconnect(client, ports[i], jack_port_name(input_port));
+                    input_state[i] = input_new_state[i];
+                }
+            }
+            ImGui::End();
+        }
+        if (show_out){
+            ImGui::Begin("Output", &show_out);
+            ports = jack_get_ports (client, nullptr,nullptr,
+                                    JackPortIsPhysical|JackPortIsInput);
+            const char ** cursor = ports;
+            while(*cursor != nullptr){
+                ImGui::SmallButton(cursor[0]);
+                cursor++;
+            }
+            ImGui::End();
+        }
+
+        // RENDER COMMIT
         ImGui::Render();
         glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);
         glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
@@ -125,7 +181,9 @@ void GUI(){
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
         SDL_GL_SwapWindow(window);
         std::this_thread::sleep_for(std::chrono::milliseconds(33));
-    }
+    }while(!done);
+
+
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplSDL2_Shutdown();
     ImGui::DestroyContext();
@@ -137,7 +195,7 @@ void GUI(){
 int main (int argc, char *argv[])
 {
     const char **ports;
-    const char *client_name = "FDB-Killer";
+    const char *client_name = "RTA";
     const char *server_name = nullptr;
     jack_options_t options = JackNullOption;
     jack_status_t status;
@@ -203,10 +261,10 @@ int main (int argc, char *argv[])
     jack_on_shutdown (client, jack_shutdown, 0);
 
     /* create two ports */
-    input_port = jack_port_register (client, "input",
+    input_port = jack_port_register (client, "in",
                                      JACK_DEFAULT_AUDIO_TYPE,
                                      JackPortIsInput, 0);
-    output_port = jack_port_register (client, "output",
+    output_port = jack_port_register (client, "out",
                                       JACK_DEFAULT_AUDIO_TYPE,
                                       JackPortIsOutput, 0);
     if ((input_port == nullptr) || (output_port == nullptr)) {
@@ -220,7 +278,7 @@ int main (int argc, char *argv[])
         fprintf (stderr, "cannot activate client");
         exit (1);
     }
-    std::thread gui(GUI);
+    std::thread gui(GUI,client);
     gui.detach();
 
     sleep(-1);
