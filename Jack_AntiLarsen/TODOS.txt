@@ -1,0 +1,15 @@
+GUI:
+1) MAIN MENU bar
+
+2) Components:
+- Multi-switchable 4 x fast RTA
+- Routing matrix
+- Sub placement calc
+- Feedback detector
+
+3) Abstraction:
+- move init, shutdown, process in component namespace from global scope
+- dedicated thread for every active component
+- background routing thread
+- logger
+-

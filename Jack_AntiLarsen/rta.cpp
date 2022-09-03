@@ -30,7 +30,6 @@
 
 jack_port_t *input_port;
 jack_port_t *output_port;
-jack_client_t *client;
 
 Analyzer *analyzer;
 
@@ -46,65 +45,81 @@ void jack_shutdown (void *arg){
     exit (1);
 }
 
-void GUI(jack_client_t *client) {
+void GUI(std::vector <jack_client_t *> clients) {
     float data[FFTOUT_BUF_LENGTH];
     const char **ports;
-    int in_ports;
+    int in_ports = 0;
     int out_ports;
-    std::vector<u_int8_t> input_new_state;
-    std::vector<u_int8_t> input_state;
-        // Setup SDL
-        // (Some versions of SDL before <2.0.10 appears to have performance/stalling issues on a minority of Windows systems,
-        // depending on whether SDL_INIT_GAMECONTROLLER is enabled or disabled.. updating to latest version of SDL is recommended!)
-        if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) != 0) {
-            printf("Error: %s\n", SDL_GetError());
-            exit(-1);
+    std::vector<std::vector<u_int8_t>> input_new_state;
+    std::vector<std::vector<u_int8_t>> input_state;
+    for(auto &v : input_new_state){
+        for(auto &i: v){
+            i = 0;
         }
-        const char *glsl_version = "#version 130";
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-        SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
-        // Create window with graphics context
-        SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-        SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
-        SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
-        SDL_WindowFlags window_flags = (SDL_WindowFlags) (SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE |
-                                                          SDL_WINDOW_ALLOW_HIGHDPI);
-        SDL_Window *window = SDL_CreateWindow("RTA", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720,
-                                              window_flags);
-        SDL_GLContext gl_context = SDL_GL_CreateContext(window);
-        SDL_GL_MakeCurrent(window, gl_context);
-        SDL_GL_SetSwapInterval(1); // Enable vsync
-
-        // Initialize OpenGL loader
-        #if defined(IMGUI_IMPL_OPENGL_LOADER_GL3W)
-        bool err = gl3wInit() != 0;
-        #else
-        bool err = false;
-        #endif
-        if (err) {
-            fprintf(stderr, "Failed to initialize OpenGL loader!\n");
-            exit(1);
+    }
+    for(auto &v : input_state){
+        for(auto &i:v){
+            i = 0;
         }
+    }
 
-        // Setup Dear ImGui context
-        IMGUI_CHECKVERSION();
-        ImGui::CreateContext();
-        ImGuiIO &io = ImGui::GetIO();
-        (void) io;
-        ImGui::StyleColorsClassic();
-        // Setup Platform/Renderer bindings
-        ImGui_ImplSDL2_InitForOpenGL(window, gl_context);
-        ImGui_ImplOpenGL3_Init(glsl_version);
-        ImVec4 clear_color = ImVec4(0.1f, 0.1f, 0.1f, 0.1f);
+    float sub_freq = 0.0f;
+    bool sub_gradient = false;
+    bool sub_endfire = false;
+    // Setup SDL
+    // (Some versions of SDL before <2.0.10 appears to have performance/stalling issues on a minority of Windows systems,
+    // depending on whether SDL_INIT_GAMECONTROLLER is enabled or disabled.. updating to latest version of SDL is recommended!)
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER | SDL_INIT_GAMECONTROLLER) != 0) {
+        printf("Error: %s\n", SDL_GetError());
+        exit(-1);
+    }
+    const char *glsl_version = "#version 130";
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+    // Create window with graphics context
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+    SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+    SDL_WindowFlags window_flags = (SDL_WindowFlags) (SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE |
+                                                      SDL_WINDOW_ALLOW_HIGHDPI);
+    SDL_Window *window = SDL_CreateWindow("RTA", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720,
+                                          window_flags);
+    SDL_GLContext gl_context = SDL_GL_CreateContext(window);
+    SDL_GL_MakeCurrent(window, gl_context);
+    SDL_GL_SetSwapInterval(1); // Enable vsync
+
+    // Initialize OpenGL loader
+    #if defined(IMGUI_IMPL_OPENGL_LOADER_GL3W)
+    bool err = gl3wInit() != 0;
+    #else
+    bool err = false;
+    #endif
+    if (err) {
+        fprintf(stderr, "Failed to initialize OpenGL loader!\n");
+        exit(1);
+    }
+
+    // Setup Dear ImGui context
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+    ImGuiIO &io = ImGui::GetIO();
+    (void) io;
+    ImGui::StyleColorsClassic();
+    // Setup Platform/Renderer bindings
+    ImGui_ImplSDL2_InitForOpenGL(window, gl_context);
+    ImGui_ImplOpenGL3_Init(glsl_version);
+    ImVec4 clear_color = ImVec4(0.1f, 0.1f, 0.1f, 0.1f);
+    SDL_Event event;
 
     bool done = false;
     bool show_rta = false;
     bool show_in = false;
     bool show_out = false;
+    bool show_sub = false;
     do{
-        SDL_Event event;
+
         while (SDL_PollEvent(&event))
         {
             ImGui_ImplSDL2_ProcessEvent(&event);
@@ -121,6 +136,7 @@ void GUI(jack_client_t *client) {
             ImGui::NewFrame();
             ImGui::Begin("Main Menù");
             ImGui::Checkbox("RTA", &show_rta);
+            ImGui::Checkbox("SUB placer", &show_sub);
             ImGui::Checkbox("IN list", &show_in);
             ImGui::Checkbox("OUT list", &show_out);
             ImGui::End();
@@ -138,32 +154,47 @@ void GUI(jack_client_t *client) {
         }
         if (show_in){
             int n_ports = 0;
-            ImGui::Begin("Capture", &show_in);
-            ports = jack_get_ports (client, nullptr,nullptr,
-                                    JackPortIsPhysical|JackPortIsOutput);
-            const char ** cursor = ports;
-            for (n_ports = 0; cursor[n_ports] != nullptr; ++n_ports);
+            ports = jack_get_ports (clients[0], nullptr,nullptr,
+                                    JackPortIsOutput);
+            for (n_ports = 0; ports[n_ports] != nullptr; ++n_ports);
             if (in_ports != n_ports){
                 input_new_state.resize(n_ports);
                 input_state.resize(n_ports);
+                for (auto &v : input_new_state) v.resize(clients.size());
+                for (auto &v : input_state) v.resize(clients.size());
                 in_ports = n_ports;
             }
+            ImGui::Begin("Capture", &show_in);
+            ImGui::Columns((int) clients.size()+1, nullptr, true);
+            ImGui::Text("Ports:");
+            ImGui::NextColumn();
+            for(auto &c : clients){
+                ImGui::Text("%s", jack_get_client_name(c));
+                ImGui::NextColumn();
+            }
             for (int i = 0; i < n_ports ; ++i) {
-                ImGui::Checkbox(cursor[i], reinterpret_cast<bool *>(& input_new_state[i]));
-                if (input_new_state[i] && !input_state[i]){
-                    jack_connect(client,ports[i], jack_port_name(input_port));
-                    input_state[i] = input_new_state[i];
-                }
-                if (!input_new_state[i] && input_state[i]){
-                    jack_disconnect(client, ports[i], jack_port_name(input_port));
-                    input_state[i] = input_new_state[i];
+                ImGui::Text("%s",ports[i]);
+                ImGui::NextColumn();
+                int j = 0;
+                for(auto &c : clients) {
+                    ImGui::Checkbox("", reinterpret_cast<bool *>(& input_new_state[i][j]));
+                    ImGui::NextColumn();
+                    if (input_new_state[i][j] && !input_state[i][j]) {
+                        jack_connect(c, ports[i], jack_port_name(input_port));
+                        input_state[i][j] = input_new_state[i][j];
+                    }
+                    if (!input_new_state[i][j] && input_state[i][j]) {
+                        jack_disconnect(c, ports[i], jack_port_name(input_port));
+                        input_state[i][j] = input_new_state[i][j];
+                    }
+                    ++j;
                 }
             }
             ImGui::End();
         }
         if (show_out){
             ImGui::Begin("Output", &show_out);
-            ports = jack_get_ports (client, nullptr,nullptr,
+            ports = jack_get_ports (clients[0], nullptr,nullptr,
                                     JackPortIsPhysical|JackPortIsInput);
             const char ** cursor = ports;
             while(*cursor != nullptr){
@@ -171,8 +202,32 @@ void GUI(jack_client_t *client) {
                 cursor++;
             }
             ImGui::End();
-        }
 
+        }
+        if (show_sub){
+
+            ImGui::Begin("SubWoofer Placer", &show_sub);
+            ImGui::InputFloat("Frequency [Hz]: ",&sub_freq, 0.1f, 1.0f);
+            ImGui::Checkbox("Endfire", &sub_endfire);
+            if(sub_endfire)sub_gradient= false;
+            ImGui::Checkbox("Gradient", &sub_gradient);
+            if (sub_gradient){
+                sub_endfire = false;
+                ImGui::Text("Back row:");
+                ImGui::Text("Delay: + %f ms", (1.0f/sub_freq)/4*1000);
+                ImGui::Text("Phase: 180°");
+                ImGui::Text("Front row:");
+                ImGui::Text("Distance: %f m", (1.0f/sub_freq)/4*331.45f);
+            }
+            if (sub_endfire){
+                ImGui::Text("Back row:");
+                ImGui::Text("Flat");
+                ImGui::Text("Front row:");
+                ImGui::Text("Distance: %f m", (1.0f/sub_freq)/4*331.45f);
+                ImGui::Text("Delay: + %f ms", (1.0f/sub_freq)/4*1000);
+            }
+            ImGui::End();
+        }
         // RENDER COMMIT
         ImGui::Render();
         glViewport(0, 0, (int)io.DisplaySize.x, (int)io.DisplaySize.y);
@@ -194,9 +249,12 @@ void GUI(jack_client_t *client) {
 
 int main (int argc, char *argv[])
 {
+    std::vector <jack_client_t *> clients;
+
     const char **ports;
     const char *client_name = "RTA";
     const char *server_name = nullptr;
+    jack_client_t *client;
     jack_options_t options = JackNullOption;
     jack_status_t status;
     bool analyzer_settings[3];
@@ -274,11 +332,16 @@ int main (int argc, char *argv[])
     /* Tell the JACK server that we are ready to roll.  Our
      * process() callback will start running now.
      * */
-    if (jack_activate (client)) {
+    if (jack_activate (client) == EXIT_SUCCESS) {
+        clients.push_back(client);
+        clients.shrink_to_fit();
+    }
+    else{
         fprintf (stderr, "cannot activate client");
         exit (1);
     }
-    std::thread gui(GUI,client);
+
+    std::thread gui(GUI,clients);
     gui.detach();
 
     sleep(-1);
