@@ -50,13 +50,7 @@ void GUI(std::vector <jack_client_t *> clients) {
     const char **ports;
     int in_ports = 0;
     int out_ports;
-    std::vector<std::vector<u_int8_t>> input_new_state;
     std::vector<std::vector<u_int8_t>> input_state;
-    for(auto &v : input_new_state){
-        for(auto &i: v){
-            i = 0;
-        }
-    }
     for(auto &v : input_state){
         for(auto &i:v){
             i = 0;
@@ -119,7 +113,6 @@ void GUI(std::vector <jack_client_t *> clients) {
     bool show_out = false;
     bool show_sub = false;
     do{
-
         while (SDL_PollEvent(&event))
         {
             ImGui_ImplSDL2_ProcessEvent(&event);
@@ -154,17 +147,15 @@ void GUI(std::vector <jack_client_t *> clients) {
         }
         if (show_in){
             int n_ports = 0;
+            ImGui::Begin("Capture", &show_in);
             ports = jack_get_ports (clients[0], nullptr,nullptr,
-                                    JackPortIsOutput);
+                                    JackPortIsPhysical|JackPortIsOutput);
             for (n_ports = 0; ports[n_ports] != nullptr; ++n_ports);
             if (in_ports != n_ports){
-                input_new_state.resize(n_ports);
                 input_state.resize(n_ports);
-                for (auto &v : input_new_state) v.resize(clients.size());
                 for (auto &v : input_state) v.resize(clients.size());
                 in_ports = n_ports;
             }
-            ImGui::Begin("Capture", &show_in);
             ImGui::Columns((int) clients.size()+1, nullptr, true);
             ImGui::Text("Ports:");
             ImGui::NextColumn();
@@ -177,17 +168,16 @@ void GUI(std::vector <jack_client_t *> clients) {
                 ImGui::NextColumn();
                 int j = 0;
                 for(auto &c : clients) {
-                    ImGui::Checkbox("", reinterpret_cast<bool *>(& input_new_state[i][j]));
-                    ImGui::NextColumn();
-                    if (input_new_state[i][j] && !input_state[i][j]) {
-                        jack_connect(c, ports[i], jack_port_name(input_port));
-                        input_state[i][j] = input_new_state[i][j];
-                    }
-                    if (!input_new_state[i][j] && input_state[i][j]) {
-                        jack_disconnect(c, ports[i], jack_port_name(input_port));
-                        input_state[i][j] = input_new_state[i][j];
+                    if(ImGui::Checkbox("", (bool *)(&input_state[i][j]))){
+                        if (input_state[i][j]) {
+                            jack_connect(c, ports[i], jack_port_name(input_port));
+                        }
+                        else if (!input_state[i][j]) {
+                            jack_disconnect(c, ports[i], jack_port_name(input_port));
+                        }
                     }
                     ++j;
+                    ImGui::NextColumn();
                 }
             }
             ImGui::End();
