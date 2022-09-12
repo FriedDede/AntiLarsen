@@ -4,7 +4,6 @@ GUI:
 2) Components:
 - Multi-switchable 4 x fast RTA
 - Routing matrix
-- Sub placement calc
 - Feedback detector
 
 3) Abstraction:

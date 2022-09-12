@@ -37,7 +37,7 @@ add_executable(RTA
         include/DSP.h
         imgui/imgui.h
         imgui/
-        )
+        src/client.cpp src/client.h)
 
 target_link_libraries(Jack_AntiLarsen
         /usr/lib64/pipewire-0.3/jack/libjack.so.0

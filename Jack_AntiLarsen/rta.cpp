@@ -17,7 +17,7 @@
 #include <cstring>
 #include <unistd.h>
 #include <cstdio>
-#include <cstring>
+#include <string>
 #include <vector>
 #include <thread>
 #include <SDL.h>
@@ -51,11 +51,6 @@ void GUI(std::vector <jack_client_t *> clients) {
     int in_ports = 0;
     int out_ports;
     std::vector<std::vector<u_int8_t>> input_state;
-    for(auto &v : input_state){
-        for(auto &i:v){
-            i = 0;
-        }
-    }
 
     float sub_freq = 0.0f;
     bool sub_gradient = false;
@@ -78,8 +73,8 @@ void GUI(std::vector <jack_client_t *> clients) {
     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
     SDL_WindowFlags window_flags = (SDL_WindowFlags) (SDL_WINDOW_OPENGL | SDL_WINDOW_RESIZABLE |
                                                       SDL_WINDOW_ALLOW_HIGHDPI);
-    SDL_Window *window = SDL_CreateWindow("RTA", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, 1280, 720,
-                                          window_flags);
+    SDL_Window *window = SDL_CreateWindow("RTA", SDL_WINDOWPOS_CENTERED, \
+    SDL_WINDOWPOS_CENTERED, 1280, 720,window_flags);
     SDL_GLContext gl_context = SDL_GL_CreateContext(window);
     SDL_GL_MakeCurrent(window, gl_context);
     SDL_GL_SetSwapInterval(1); // Enable vsync
@@ -127,13 +122,14 @@ void GUI(std::vector <jack_client_t *> clients) {
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplSDL2_NewFrame(window);
             ImGui::NewFrame();
-            ImGui::Begin("Main Menù");
-            ImGui::Checkbox("RTA", &show_rta);
-            ImGui::Checkbox("SUB placer", &show_sub);
-            ImGui::Checkbox("IN list", &show_in);
-            ImGui::Checkbox("OUT list", &show_out);
-            ImGui::End();
         }
+        // MAIN MENU
+            ImGui::BeginMainMenuBar();
+            ImGui::MenuItem("RTA", nullptr, &show_rta);
+            ImGui::MenuItem("SUB placer", nullptr,&show_sub);
+            ImGui::MenuItem("IN list", nullptr,&show_in);
+            ImGui::MenuItem("OUT list", nullptr, &show_out);
+            ImGui::EndMainMenuBar();
         //RTA Window
         if(show_rta){
             for (int i = 0; i < FFTOUT_BUF_LENGTH; ++i) {
@@ -168,12 +164,19 @@ void GUI(std::vector <jack_client_t *> clients) {
                 ImGui::NextColumn();
                 int j = 0;
                 for(auto &c : clients) {
-                    if(ImGui::Checkbox("", (bool *)(&input_state[i][j]))){
+                    std::string label;
+                    label = "##" + std::to_string(i) + std::to_string(j);
+                    if(ImGui::Checkbox(label.c_str(), (bool *)(&input_state[i][j]))){
+                        std::cout << "checkbox click" <<std::endl;
                         if (input_state[i][j]) {
-                            jack_connect(c, ports[i], jack_port_name(input_port));
+                            jack_connect(c, ports[i],\
+                            jack_port_name(input_port));
+                            std::cout << "connect port: " << i << " to client: " << j <<std::endl;
                         }
                         else if (!input_state[i][j]) {
-                            jack_disconnect(c, ports[i], jack_port_name(input_port));
+                            jack_disconnect(c, ports[i],\
+                            jack_port_name(input_port));
+                            std::cout << "disconnect port: " << i << " from client: " << j <<std::endl;
                         }
                     }
                     ++j;
@@ -184,8 +187,8 @@ void GUI(std::vector <jack_client_t *> clients) {
         }
         if (show_out){
             ImGui::Begin("Output", &show_out);
-            ports = jack_get_ports (clients[0], nullptr,nullptr,
-                                    JackPortIsPhysical|JackPortIsInput);
+            ports = jack_get_ports (clients[0], nullptr,\
+            nullptr,JackPortIsPhysical|JackPortIsInput);
             const char ** cursor = ports;
             while(*cursor != nullptr){
                 ImGui::SmallButton(cursor[0]);
