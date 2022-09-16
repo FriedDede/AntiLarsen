@@ -16,15 +16,15 @@ namespace jack_callbacks {
 
 class client {
 public:
-    explicit client(char*);
+    explicit client(const char*);
     int process(jack_nframes_t,void*);
-    void shutdown(void*);
-    void registerInPort (char *);
-    void registerOutPort (char *);
-    void unregisterInPort (char *);
-    void unregisterOutPort (char *);
+    void registerInPort (const char *);
+    void registerOutPort (const char *);
+    void unregisterPort (const char *);
     void activate();
-private:
+    virtual ~client();
+
+protected:
     std::vector<jack_port_t *> input_ports;
     std::vector<jack_port_t *> output_ports;
     jack_client_t *jack_client;

@@ -2,23 +2,24 @@
 // Created by andre on 9/12/22.
 //
 
-#include "client.h"
+#include "../include/client.h"
 #include <jack/jack.h>
 #include <jack/types.h>
 #include <iostream>
 
 int jack_callbacks::process(jack_nframes_t nframes, void *clientpointer) {
     auto *cp = reinterpret_cast<class client *>(clientpointer);
-    cp->process(nframes,0);
+    cp->process(nframes,nullptr);
     return 0;
 }
 
 void jack_callbacks::shutdown(void *clientpointer) {
     auto *cp = reinterpret_cast<class client *>(clientpointer);
-    cp->shutdown(0);
+    delete cp;
 }
 
-client::client(char *client_name) {
+client::client(const char *client_name) {
+
     this->jack_client = jack_client_open (client_name, this->jack_options,\
     &this->jack_status, nullptr);
     if (this->jack_client == nullptr) {
@@ -36,18 +37,15 @@ client::client(char *client_name) {
         client_name = jack_get_client_name(this->jack_client);
         fprintf (stderr, "unique name `%s' assigned\n", client_name);
     }
+
+
     jack_set_process_callback (this->jack_client, \
     (jack_callbacks::process), (void *) this);
-    /* tell the JACK server to call `jack_shutdown()' if
-     * it ever shuts down, either entirely, or if it
-     * just decides to stop calling us.
-     * */
     jack_on_shutdown (this->jack_client,\
     jack_callbacks::shutdown, (void *) this);
 
-    jack_port_t * input_port;
-    jack_port_t * output_port;
-    /* create two ports */
+    jack_port_t *input_port;
+    jack_port_t *output_port;
     input_port = jack_port_register (this->jack_client, "in",
                                      JACK_DEFAULT_AUDIO_TYPE,
                                      JackPortIsInput, 0);
@@ -59,8 +57,8 @@ client::client(char *client_name) {
         exit (1);
     }
     else{
-        input_ports.push_back(input_port);
-        output_ports.push_back(output_port);
+        this->input_ports.push_back(input_port);
+        this->output_ports.push_back(output_port);
     }
 }
 
@@ -68,22 +66,46 @@ int client::process(jack_nframes_t, void *) {
     return 0;
 }
 
-void client::shutdown(void *) {
-
+void client::registerInPort(const char *port_name) {
+    jack_port_t *input_port;
+    input_port = jack_port_register (this->jack_client, port_name,
+                                     JACK_DEFAULT_AUDIO_TYPE,
+                                     JackPortIsInput, 0);
+    if (input_port == nullptr) {
+        fprintf(stderr, "no more JACK ports available\n");
+        exit (1);
+    }
+    else{
+        this->input_ports.push_back(input_port);
+    }
 }
 
-void client::registerInPort(char *) {
+void client::registerOutPort(const char *port_name) {
 
+    jack_port_t *output_port;
+    output_port = jack_port_register (this->jack_client, port_name,
+                                      JACK_DEFAULT_AUDIO_TYPE,
+                                      JackPortIsOutput, 0);
+    if (output_port == nullptr) {
+        fprintf(stderr, "no more JACK ports available\n");
+        exit (1);
+    }
+    else{
+        this->output_ports.push_back(output_port);
+    }
 }
 
-void client::registerOutPort(char *) {
-
+void client::unregisterPort(const char *port_name) {
+    jack_port_unregister(this->jack_client, \
+    jack_port_by_name(this->jack_client,port_name));
 }
 
-void client::unregisterInPort(char *) {
 
+void client::activate() {
+    if (jack_activate (this->jack_client) != EXIT_SUCCESS){
+        fprintf (stderr, "cannot activate client");
+        exit (1);
+    }
 }
 
-void client::unregisterOutPort(char *) {
-
-}
+client::~client() = default;

@@ -15,7 +15,6 @@
 #CXX = clang++
 
 EXE = example_sdl_opengl3
-SOURCES = main.cpp
 SOURCES += ../imgui_impl_sdl.cpp ../imgui_impl_opengl3.cpp
 SOURCES += ../../imgui.cpp ../../imgui_demo.cpp ../../imgui_draw.cpp ../../imgui_widgets.cpp
 OBJS = $(addsuffix .o, $(basename $(notdir $(SOURCES))))
@@ -97,7 +96,7 @@ endif
 %.o:../libs/glad/src/%.c
 	$(CC) $(CFLAGS) -c -o $@ $<
 
-all: $(EXE)
+all: $(OBJS)
 	@echo Build complete for $(ECHO_MESSAGE)
 
 $(EXE): $(OBJS)

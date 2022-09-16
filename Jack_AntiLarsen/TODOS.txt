@@ -11,4 +11,4 @@ GUI:
 - dedicated thread for every active component
 - background routing thread
 - logger
--
+

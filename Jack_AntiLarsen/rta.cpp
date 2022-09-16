@@ -9,6 +9,7 @@
 #include "include/Analyzer.h"
 #include "include/DSP.h"
 #include "include/fastmath.h"
+#include "include/client.h"
 
 #include <iostream>
 #include <jack/jack.h>
@@ -243,6 +244,8 @@ void GUI(std::vector <jack_client_t *> clients) {
 int main (int argc, char *argv[])
 {
     std::vector <jack_client_t *> clients;
+
+    client test = client("test");
 
     const char **ports;
     const char *client_name = "RTA";
