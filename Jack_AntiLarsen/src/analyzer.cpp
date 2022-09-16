@@ -9,7 +9,7 @@
 #include <fftw3.h>
 #include <iostream>
 
-Analyzer::Analyzer(const bool settings[3]) {
+analyzer::analyzer(const bool settings[3]) {
     // locate jack audio buffer
     this->jack_buffer = nullptr;
 
@@ -33,7 +33,7 @@ Analyzer::Analyzer(const bool settings[3]) {
 
 }
 
-void Analyzer::blackman_win(int nsamples) {
+void analyzer::blackman_win(int nsamples) {
     int nsamples_periodic = nsamples + 1;
     this->blackman[0]=0.0f;
     for (int i = 1; i < (nsamples_periodic+1)/2; ++i) {
@@ -46,7 +46,7 @@ void Analyzer::blackman_win(int nsamples) {
 /*
  * buf_out = abs(fft(jack_buf))
  */
-void Analyzer::fftWrapper(const float *jack_buf) {
+void analyzer::fftWrapper(const float *jack_buf) {
     for (int i = 0; i < BUF_LENGTH; ++i) {
         this->ft_in[i] = jack_buf[i]* this->blackman[i];
     }
@@ -63,7 +63,7 @@ void Analyzer::fftWrapper(const float *jack_buf) {
  *  phpr : log10(|Y(wi)|^2/|Y(nwi)|^2)
  *  pnpr advised threshold is 30 dB
  */
-bool Analyzer::phpr(const float *buf_in) {
+bool analyzer::phpr(const float *buf_in) {
     bool ret = false;
     for (int i = 0; i < N_PEAKS; ++i) {
         if (this->found_howls[i] != 0){
@@ -92,7 +92,7 @@ bool Analyzer::phpr(const float *buf_in) {
  *  phpr : log10(|Y(wi)|^2/|Y(wi + n(2pi/M)|^2)
  *  phpr advised threshold is 10 dB
  */
-bool Analyzer::pnpr(const float *buf_in) {
+bool analyzer::pnpr(const float *buf_in) {
     bool ret = false;
     for (int i = 0; i < N_PEAKS; ++i) {
         if(this->found_howls[i] != 0){
@@ -120,7 +120,7 @@ bool Analyzer::pnpr(const float *buf_in) {
  * IMSD : 10*|log10(Y(wi,T)/Y(wi,T-1)|- 10*|log10(Y(wi,T-1)/Y(wi,T-2)| ...
  * IMSD advised threshold is 1dB
  */
-bool Analyzer::imsd() {
+bool analyzer::imsd() {
     bool ret = true;
     for (auto &p: this->found_howls) {
         if ((imsd_threshold/10) >
@@ -136,7 +136,7 @@ bool Analyzer::imsd() {
  * find 10 highest peaks, run phpr, pnpr, imsd if enabled.
  * write howling frequencies indexes in found_howls, if detected.
  */
-void Analyzer::analyzeBuffer(const float *jackBuffer) {
+void analyzer::analyzeBuffer(const float *jackBuffer) {
     // swap buffers order
     float *t = this->buffers[2];
     this->buffers[2]= this->buffers[1];
@@ -167,7 +167,7 @@ void Analyzer::analyzeBuffer(const float *jackBuffer) {
  * param @peaks: peaks found in buf_in
  * Find the peak that has the lowest magnitude, and place it at peaks[0]
  */
-void inline Analyzer::minHead(const float *buf_in, int *peaks) {
+void inline analyzer::minHead(const float *buf_in, int *peaks) {
     int min_peak = 0;
     int tmp = 0;
     for (int i = 0; i < N_PEAKS; ++i) {
@@ -180,40 +180,40 @@ void inline Analyzer::minHead(const float *buf_in, int *peaks) {
 /*
  *  Return ft_out buffer pointer
  */
-std::complex<float> *Analyzer::getFtOut() const {
+std::complex<float> *analyzer::getFtOut() const {
     return ft_out;
 }
 /*
  *  Return buffer[0]
  */
-float* Analyzer::getOutBuffer() const {
+float* analyzer::getOutBuffer() const {
     return buffers[0];
 }
-float Analyzer::getPhprThreshold() const {
+float analyzer::getPhprThreshold() const {
     return this->phpr_threshold;
 }
-float Analyzer::getPnprThreshold() const {
+float analyzer::getPnprThreshold() const {
     return this->pnpr_threshold;
 }
-float Analyzer::getImsdThreshold() const {
+float analyzer::getImsdThreshold() const {
     return this->imsd_threshold;
 }
-bool Analyzer::isRunPhpr() const {
+bool analyzer::isRunPhpr() const {
     return run_phpr;
 }
-bool Analyzer::isRunPnpr() const {
+bool analyzer::isRunPnpr() const {
     return run_pnpr;
 }
-bool Analyzer::isRunImsd() const {
+bool analyzer::isRunImsd() const {
     return run_imsd;
 }
-void Analyzer::setInputBuffer(const float *jackBuffer) {
+void analyzer::setInputBuffer(const float *jackBuffer) {
     this->jack_buffer = jackBuffer;
 }
 /*
  * Destructor
  */
-Analyzer::~Analyzer() {
+analyzer::~analyzer() {
     fftwf_destroy_plan(this->ft_plan);
     free(ft_in);
     free(ft_out);

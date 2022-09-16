@@ -9,7 +9,7 @@
 
 int jack_callbacks::process(jack_nframes_t nframes, void *clientpointer) {
     auto *cp = reinterpret_cast<class client *>(clientpointer);
-    cp->process(nframes,nullptr);
+    if(cp->enabled) cp->process(nframes,nullptr);
     return 0;
 }
 
@@ -44,21 +44,15 @@ client::client(const char *client_name) {
     jack_on_shutdown (this->jack_client,\
     jack_callbacks::shutdown, (void *) this);
 
-    jack_port_t *input_port;
-    jack_port_t *output_port;
-    input_port = jack_port_register (this->jack_client, "in",
+    this->input_port = jack_port_register (this->jack_client, "in",
                                      JACK_DEFAULT_AUDIO_TYPE,
                                      JackPortIsInput, 0);
-    output_port = jack_port_register (this->jack_client, "out",
+    this->output_port = jack_port_register (this->jack_client, "out",
                                       JACK_DEFAULT_AUDIO_TYPE,
                                       JackPortIsOutput, 0);
     if ((input_port == nullptr) || (output_port == nullptr)) {
         fprintf(stderr, "no more JACK ports available\n");
         exit (1);
-    }
-    else{
-        this->input_ports.push_back(input_port);
-        this->output_ports.push_back(output_port);
     }
 }
 
@@ -67,31 +61,24 @@ int client::process(jack_nframes_t, void *) {
 }
 
 void client::registerInPort(const char *port_name) {
-    jack_port_t *input_port;
-    input_port = jack_port_register (this->jack_client, port_name,
+
+    this->input_port = jack_port_register (this->jack_client, port_name,
                                      JACK_DEFAULT_AUDIO_TYPE,
                                      JackPortIsInput, 0);
-    if (input_port == nullptr) {
+    if (this->input_port == nullptr) {
         fprintf(stderr, "no more JACK ports available\n");
         exit (1);
-    }
-    else{
-        this->input_ports.push_back(input_port);
     }
 }
 
 void client::registerOutPort(const char *port_name) {
 
-    jack_port_t *output_port;
-    output_port = jack_port_register (this->jack_client, port_name,
+    this->output_port = jack_port_register (this->jack_client, port_name,
                                       JACK_DEFAULT_AUDIO_TYPE,
                                       JackPortIsOutput, 0);
-    if (output_port == nullptr) {
+    if (this->output_port == nullptr) {
         fprintf(stderr, "no more JACK ports available\n");
         exit (1);
-    }
-    else{
-        this->output_ports.push_back(output_port);
     }
 }
 
@@ -106,6 +93,10 @@ void client::activate() {
         fprintf (stderr, "cannot activate client");
         exit (1);
     }
+}
+
+jack_client_t *client::getJackClient() const {
+    return jack_client;
 }
 
 client::~client() = default;

@@ -8,9 +8,9 @@
 #include <fftw3.h>
 #include <complex>
 
-class Analyzer {
+class analyzer {
 public:
-    explicit Analyzer(const bool *settings);
+    explicit analyzer(const bool *settings);
     void analyzeBuffer(const float *jackBuffer);
     void setInputBuffer(const float *jackBuffer);
     float getPhprThreshold() const;
@@ -20,7 +20,7 @@ public:
     bool isRunPnpr() const;
     bool isRunImsd() const;
     int found_howls[N_PEAKS];
-    virtual ~Analyzer();
+    virtual ~analyzer();
 
     std::complex<float> *getFtOut() const;
     float* getOutBuffer() const;

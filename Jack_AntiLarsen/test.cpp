@@ -13,7 +13,7 @@
 #include <chrono>
 
 DSP *dsp;
-Analyzer *analyzer;
+analyzer *analyzer;
 
 int main(){
     float out_buf_test[BUF_LENGTH];
@@ -26,7 +26,7 @@ int main(){
     bool larsen;
     const static float fsampling = 48000.0f;
     dsp = new DSP;
-    analyzer = new Analyzer(settings);
+    analyzer = new analyzer(settings);
 
     float test[ntests][BUF_LENGTH] ;
     for (int i = 0; i < BUF_LENGTH; ++i) {
