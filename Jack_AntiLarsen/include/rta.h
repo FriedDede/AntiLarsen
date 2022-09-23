@@ -15,18 +15,20 @@
 class rta:public client {
 public:
     explicit rta(const char *name);
-    int process(jack_nframes_t, void *);
+    int process(jack_nframes_t, void *) override;
     void setFftLength(int fftLength);
     int getFftLength() const;
     std::complex<float> *getFtOut() const;
+    void blackman_win(int);
 
 protected:
     int head_buffer = 0;
-    int fft_length = 5;
-    float *buffers[5];
-    float ft_in[BUF_LENGTH*5];
+    int fft_length = 4;
+    float *buffers[4];
+    float ft_in[BUF_LENGTH*4];
     std::complex<float> *ft_out;
     fftwf_plan ft_plan;
+    float blackman[BUF_LENGTH];
 };
 
 

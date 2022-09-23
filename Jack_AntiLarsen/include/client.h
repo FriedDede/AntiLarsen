@@ -35,6 +35,7 @@ public:
     jack_port_t * input_port;
     jack_port_t * output_port;
     bool enabled = false;
+
 protected:
     jack_client_t *jack_client;
     jack_options_t jack_options = JackNullOption;

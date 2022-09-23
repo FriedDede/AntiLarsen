@@ -49,15 +49,17 @@ add_executable(RTA
         imgui/imgui_draw.cpp
         imgui/imgui_widgets.cpp
         imgui/libs/gl3w/GL/gl3w.c
-        ##imgui/opengl3/imgui.o
-        ##imgui/opengl3/imgui_draw.o
-        ##imgui/opengl3/imgui_impl_opengl3.o
-        ##imgui/opengl3/imgui_impl_sdl.o
-        ##imgui/opengl3/imgui_widgets.o
+
+        ##imgui/implot/implot.cpp
+        ##imgui/implot/implot.h
+        ##imgui/implot/implot_internal.h
+        ##imgui/implot/implot_items.cpp
+
         src/rta.cpp include/rta.h)
 include_directories(RTA
         imgui/libs/gl3w/GL
-        imgui)
+        imgui
+        imgui/implot)
 target_link_libraries(RTA
         /usr/lib64/pipewire-0.3/jack/libjack.so.0
         fftw3f

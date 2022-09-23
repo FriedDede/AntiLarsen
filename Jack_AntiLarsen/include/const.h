@@ -11,7 +11,7 @@
 #define PI 3.1415926f
 #define N_PEAKS 10
 #define FSTEP 46.875f //Hz
-#define INT_TIME 21.333 //ms
+#define INT_TIME 21.3f //ms
 /*
  * r2c fftw output format:
  * https://www.fftw.org/fftw3_doc/The-1d-Real_002ddata-DFT.html

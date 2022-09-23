@@ -1,9 +1,11 @@
 //
 // Created by andre on 8/27/22.
 //
+
 #include "imgui/imgui.h"
 #include "imgui/opengl3/imgui_impl_sdl.h"
 #include "imgui/opengl3/imgui_impl_opengl3.h"
+
 
 #include "include/Analyzer.h"
 #include "include/DSP.h"
@@ -32,11 +34,11 @@
 std::vector <client *> clients;
 
 void GUI() {
-    float data[FFTOUT_BUF_LENGTH];
+    float data[(512*5)+1];
     const char **ports;
     int in_ports = 0;
     int out_ports;
-    std::vector<std::vector<u_int8_t>> input_state;
+    bool input_state[128][128];
 
     float sub_freq = 0.0f;
     bool sub_gradient = false;
@@ -111,65 +113,71 @@ void GUI() {
         }
         // MAIN MENU
         ImGui::BeginMainMenuBar();
-        if(ImGui::MenuItem("add RTA", nullptr, &show_rta)){
-            rta *new_rta = new rta("rta");
+        if(ImGui::MenuItem("new RTA", nullptr, &show_rta)){
+            std::string name = "rta" + std::to_string(clients.size());
+            rta *new_rta = new rta(name.c_str());
+            new_rta->enabled = true;
+            new_rta->activate();
             clients.push_back(new_rta);
         };
         ImGui::MenuItem("SUB placer", nullptr,&show_sub);
-        ImGui::MenuItem("IN list", nullptr,&show_in);
-        ImGui::MenuItem("OUT list", nullptr, &show_out);
+        ImGui::MenuItem("INs", nullptr,&show_in);
+        ImGui::MenuItem("OUTs", nullptr, &show_out);
         ImGui::EndMainMenuBar();
         //RTA Window
         for (auto &c: clients) {
             if(c->type == mag_rta && c->enabled){
                 auto c_rta = (rta *)c;
-                for (int i = 0; i < FFTOUT_BUF_LENGTH*c_rta->getFftLength(); ++i) {
-                    data[i] = 10.0f*log10f_fast(std::abs(c_rta->getFtOut()[i]))+60.0f;
+                for (int i = 0; i < (512*c_rta->getFftLength())+1; ++i) {
+                    auto skewedProportionX = 1.0f - std::exp (std::log
+                                                             (1.0f - (float) i /(float) (512.0f*c_rta->getFftLength())) * 0.2f);
+                    data[i] = 10.0f*log10f_fast(std::abs(c_rta->getFtOut()[(int)(skewedProportionX*(512.0f*(float)c_rta->getFftLength()))])
+                                                  /(INT_TIME*(float)c_rta->getFftLength()));
                 }
                 ImGui::Begin(jack_get_client_name(c->getJackClient()), &c->enabled);
-                ImGui::PushItemWidth(-1);
-                ImGui::PlotHistogram("RTA",data,FFTOUT_BUF_LENGTH, \
-                0, NULL, 0.0f, 60.0f, ImGui::GetWindowSize());
+
+                ImGui::PlotHistogram("",data,(512*c_rta->getFftLength())+1,
+                                     0,"",-60,1,ImGui::GetWindowSize());
+
+                //ImGui::PlotLines("",data,(512*c_rta->getFftLength())+1,\
+                                 0, "",-60,0,ImGui::GetWindowSize());
                 ImGui::End();
             }
         }
+        //INPUTS patch panel
         if (show_in){
             int n_ports = 0;
-            ImGui::Begin("Capture", &show_in);
+            ImGui::Begin("Patch Panel", &show_in);
             ports = jack_get_ports (clients[0]->getJackClient(), nullptr,nullptr,
-                                    JackPortIsPhysical|JackPortIsOutput);
+                                    JackPortIsOutput);
             for (n_ports = 0; ports[n_ports] != nullptr; ++n_ports);
-            if (in_ports != n_ports){
-                input_state.resize(n_ports);
-                for (auto &v : input_state) v.resize(clients.size());
-                in_ports = n_ports;
-            }
+
             ImGui::Columns((int) clients.size()+1, nullptr, true);
             ImGui::Text("Ports:");
             ImGui::NextColumn();
             for(auto &c : clients){
-                ImGui::Text("%s", jack_get_client_name(c->getJackClient()));
+                if(ImGui::Button(jack_get_client_name(c->getJackClient())))
+                    c->enabled = !c->enabled;
                 ImGui::NextColumn();
             }
             for (int i = 0; i < n_ports ; ++i) {
                 ImGui::Text("%s",ports[i]);
                 ImGui::NextColumn();
                 int j = 0;
+                std::string label;
                 for(auto &c : clients) {
-                    std::string label;
-                    // TODO: Che cazzo succede qua ???
                     label = "##" + std::to_string(i) + std::to_string(j);
-                    if(ImGui::Checkbox(label.c_str(), (bool *)(&input_state[i][j]))){
+                    if(ImGui::Checkbox(label.c_str(), &input_state[i][j])){
                         std::cout << "checkbox click" <<std::endl;
                         if (input_state[i][j]) {
                             jack_connect(c->getJackClient(), ports[i],\
                             jack_port_name(c->input_port));
-                            std::cout << "connect port: " << i << " to client: " << j <<std::endl;
+                            //std::cout << "connect port: " << i << " to client: " << j <<std::endl;
                         }
                         else if (!input_state[i][j]) {
                             jack_disconnect(c->getJackClient(), ports[i],\
                             jack_port_name(c->input_port));
-                            std::cout << "disconnect port: " << i << " from client: " << j <<std::endl;
+                            //std::cout << "disconnect port: " << i << " from client: " << j <<std::endl;
                         }
                     }
                     ++j;
@@ -178,7 +186,7 @@ void GUI() {
             }
             ImGui::End();
         }
-        if (show_out){
+        /*if (show_out){
             ImGui::Begin("Output", &show_out);
             ports = jack_get_ports (clients[0]->getJackClient(), nullptr,\
             nullptr,JackPortIsPhysical|JackPortIsInput);
@@ -190,6 +198,7 @@ void GUI() {
             ImGui::End();
 
         }
+         */
         if (show_sub){
 
             ImGui::Begin("SubWoofer Placer", &show_sub);
@@ -235,11 +244,6 @@ void GUI() {
 
 int main (int argc, char *argv[])
 {
-    auto *test = new client("test");
-    auto *rta_test = new  rta("rta");
-    clients.push_back(rta_test);
-    clients.push_back(test);
-
     std::thread gui(GUI);
     gui.detach();
 

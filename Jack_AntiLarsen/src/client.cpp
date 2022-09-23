@@ -3,9 +3,11 @@
 //
 
 #include "../include/client.h"
+#include "../include/const.h"
 #include <jack/jack.h>
 #include <jack/types.h>
 #include <iostream>
+#include <cmath>
 
 int jack_callbacks::process(jack_nframes_t nframes, void *clientpointer) {
     auto *cp = reinterpret_cast<class client *>(clientpointer);
@@ -98,5 +100,6 @@ void client::activate() {
 jack_client_t *client::getJackClient() const {
     return jack_client;
 }
+
 
 client::~client() = default;
